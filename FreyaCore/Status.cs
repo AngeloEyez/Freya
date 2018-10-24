@@ -33,6 +33,6 @@ namespace Freya
         public string SMTPLogLevel;
 
         public FConstants.FeatureByte FeatureByte;
-        public FConstants.FreyaLogLevel LogLevel = FConstants.FreyaLogLevel.Normal;
+        public FConstants.FreyaLogLevel LogLevel;
     }
 }

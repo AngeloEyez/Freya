@@ -15,13 +15,16 @@ namespace Freya
     {
         public static object GetRegKey(string KeyName)
         {
+            object ob = new object();
             try
             {
-                return Registry.GetValue("HKEY_LOCAL_MACHINE\\Software\\Freya", KeyName, null);
+                ob = Registry.GetValue("HKEY_LOCAL_MACHINE\\Software\\Freya", KeyName, null);
+                return ob;
             }
             catch
             {
-                return null;
+                ob = null;
+                return ob;
             }
         }
 
@@ -55,7 +58,7 @@ namespace Freya
             RegSetting.WebServiceIP = (string)FFunc.GetRegKey("WebService");
             RegSetting.SMTPLogLevel = (string)FFunc.GetRegKey("SMTPLogLevel");
 
-            RegSetting.LogLevel = (FConstants.FreyaLogLevel)FFunc.GetRegKey("LogLevel");
+            RegSetting.LogLevel = (FConstants.FreyaLogLevel)Convert.ToInt16(FFunc.GetRegKey("LogLevel"));
             RegSetting.FeatureByte = (FConstants.FeatureByte)Convert.ToInt32(FFunc.GetRegKey("FeatureByte"));
         }
 
