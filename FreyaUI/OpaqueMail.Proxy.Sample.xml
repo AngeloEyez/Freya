@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Settings>
+  <SMTP>
+    <!-- The number of SMTP proxy services to run.  Each proxy's settings will be outlined in subsequent <Service#/> blocks. -->
+    <ServiceCount>1</ServiceCount>
+    <Service1>
+      <!-- IP addresses to accept connections from.  Delete or set value to "*" to accept connections from any IP. -->
+      <!-- Individual IPs can be specified, separated by commas, or ranges can be specified.  The "*" wildcard character is supported. -->
+      <!-- By default, connections are only accepted from the localhost. -->
+      <AcceptedIPs>0.0.0.0</AcceptedIPs>
+
+      <!-- Local IP address to listen on.  "Any" means listen on all IPs. -->
+      <LocalIPAddress>Any</LocalIPAddress>
+      <!-- Local port to listen on. -->
+      <LocalPort>587</LocalPort>
+      <!-- Whether local connections support TLS/SSL protection. -->
+      <LocalEnableSSL>True</LocalEnableSSL>
+      
+      <!-- Remote SMTP server hostname to connect to.  Common values: smtp.gmail.com, smtp.live.com, smtp.mail.yahoo.com -->
+      <RemoteServerHostName>smtp.gmail.com</RemoteServerHostName>
+      <!-- Remote SMTP server port to connect to.  587 is recommended, but 465 or 25 may be required. -->
+      <RemoteServerPort>587</RemoteServerPort>
+      <!-- Whether the remote SMTP server supports TLS/SSL protection. -->
+      <RemoteServerEnableSSL>True</RemoteServerEnableSSL>
+
+      <!-- (Optional) Username used when authenticating to the remote SMTP server.  When supplied, it will override any values sent from the client. -->
+      <RemoteServerUsername></RemoteServerUsername>
+      <!-- (Optional) Password used when authenticating to the remote SMTP server.  When supplied, it will override any values sent from the client. -->
+      <RemoteServerPassword></RemoteServerPassword>
+      
+      <!-- (Optional) "From" address for all sent messages.  When supplied, it will override any values sent from the client. -->
+      <From></From>
+      <!-- (Optional) "To" address for all sent messages.  When supplied, it will add the recipient(s) to any included with the original message. -->
+      <To></To>
+      <!-- (Optional) "CC" address for all sent messages.  When supplied, it will add the recipient(s) to any included with the original message. -->
+      <CC></CC>
+      <!-- (Optional) "BCC" address for all sent messages.  When supplied, it will add the recipient(s) to any included with the original message. -->
+      <BCC></BCC>
+      <!-- (Optional) Signature to add to the end of each sent message. -->
+      <Signature></Signature>
+
+      <!-- Send email reminders when a signing certificate is due to expire within 30 days. -->
+      <SendCertificateReminders>True</SendCertificateReminders>
+
+      <!-- Whether all outgoing messages require the S/MIME settings specified below. -->
+      <!-- When set to "RequireExactSettings", any messages that can't be signed or encrypted will be dropped, unsent. -->
+      <!-- When set to "BestEffort", OpaqueMail Proxy will attempt to sign and/or encrypt messages but still forward any that can't be. -->
+      <SMIMESettingsMode>BestEffort</SMIMESettingsMode>
+
+      <!-- Whether to sign the email.  When true, signing is the first S/MIME operation. -->
+      <SMIMESign>True</SMIMESign>
+      <!-- Whether to encrypt the email's envelope.  When SmimeSign is true, encryption is the second S/MIME operation. -->
+      <SMIMEEncrypt>True</SMIMEEncrypt>
+      <!-- Triple-wrap the email by signing, then encrypting the envelope, then signing the encrypted envelope. -->
+      <SMIMETripleWrap>True</SMIMETripleWrap>
+
+      <!-- Remove envelope encryption and signatures from passed-in messages.  If true and SmimeSigned or SmimeEncryptEnvelope is also true, new S/MIME operations will be applied. -->
+      <SMIMERemovePreviousOperations>True</SMIMERemovePreviousOperations>
+
+      <!-- (Optional) Location where all outbound messages are saved as EML files. -->
+      <ExportDirectory></ExportDirectory>
+
+      <!-- Where log files should be stored, if any.  Leave blank to avoid logging. -->
+      <!-- Date and instance variables can be encased in angle braces.  For example, "Logs\SMTPProxy{#}-{yyyy-MM-dd}.log". -->
+      <LogFile>Logs\SMTPProxy{#}-{yyyy-MM-dd}.log</LogFile>
+      <!-- Proxy logging level, determining how much information is logged.  Possible values: None, Critical, Error, Warning, Information, Verbose, Raw -->
+      <LogLevel>Verbose</LogLevel>
+    </Service1>
+  </SMTP>
+  <IMAP>
+    <!-- The number of IMAP proxy services to run.  Each proxy's settings will be outlined in subsequent <Service#/> blocks. -->
+    <ServiceCount>1</ServiceCount>
+    <Service1>
+      <!-- IP addresses to accept connections from.  Delete or set value to "*" to accept connections from any IP. -->
+      <!-- Individual IPs can be specified, separated by commas, or ranges can be specified.  The "*" wildcard character is supported. -->
+      <!-- By default, connections are only accepted from the localhost. -->
+      <AcceptedIPs>0.0.0.0</AcceptedIPs>
+
+      <!-- Local IP address to listen on.  "Any" means listen on all IPs. -->
+      <LocalIPAddress>Any</LocalIPAddress>
+      <!-- Local port to listen on. -->
+      <LocalPort>993</LocalPort>
+      <!-- Whether local connections support TLS/SSL protection. -->
+      <LocalEnableSSL>True</LocalEnableSSL>
+
+      <!-- Remote IMAP server hostname to connect to.  Common values: imap.gmail.com, imap.mail.yahoo.com -->
+      <RemoteServerHostName>imap.gmail.com</RemoteServerHostName>
+      <!-- Remote IMAP server port to connect to.  993 is recommended, but 143 may be required. -->
+      <RemoteServerPort>993</RemoteServerPort>
+      <!-- Whether the remote IMAP server supports TLS/SSL protection. -->
+      <RemoteServerEnableSSL>True</RemoteServerEnableSSL>
+
+      <!-- (Optional) Username used when authenticating to the remote IMAP server.  When supplied, it will override any values sent from the client. -->
+      <RemoteServerUsername></RemoteServerUsername>
+      <!-- (Optional) Password used when authenticating to the remote IMAP server.  When supplied, it will override any values sent from the client. -->
+      <RemoteServerPassword></RemoteServerPassword>
+
+      <!-- (Optional) Location where all incoming messages are saved as EML files. -->
+      <ExportDirectory></ExportDirectory>
+
+      <!-- Where log files should be stored, if any.  Leave blank to avoid logging. -->
+      <!-- Date and instance variables can be encased in angle braces.  For example, "Logs\IMAPProxy{#}-{yyyy-MM-dd}.log". -->
+      <LogFile>Logs\IMAPProxy{#}-{yyyy-MM-dd}.log</LogFile>
+      <!-- Proxy logging level, determining how much information is logged.  Possible values: None, Critical, Error, Warning, Information, Verbose, Raw -->
+      <LogLevel>Verbose</LogLevel>
+    </Service1>
+  </IMAP>
+  <POP3>
+    <!-- The number of POP3 proxy services to run.  Each proxy's settings will be outlined in subsequent <Service#/> blocks. -->
+    <ServiceCount>1</ServiceCount>
+    <Service1>
+      <!-- IP addresses to accept connections from.  Delete or set value to "*" to accept connections from any IP. -->
+      <!-- Individual IPs can be specified, separated by commas, or ranges can be specified.  The "*" wildcard character is supported. -->
+      <!-- By default, connections are only accepted from the localhost. -->
+      <AcceptedIPs>0.0.0.0</AcceptedIPs>
+
+      <!-- Local IP address to listen on.  "Any" means listen on all IPs. -->
+      <LocalIPAddress>Any</LocalIPAddress>
+      <!-- Local port to listen on. -->
+      <LocalPort>995</LocalPort>
+      <!-- Whether local connections support TLS/SSL protection. -->
+      <LocalEnableSSL>True</LocalEnableSSL>
+
+      <!-- Remote POP3 server hostname to connect to.  Common values: pop.gmail.com, pop3.live.com, pop.mail.yahoo.com -->
+      <RemoteServerHostName>pop.gmail.com</RemoteServerHostName>
+      <!-- Remote POP3 server port to connect to.  995 is recommended, but 110 may be required. -->
+      <RemoteServerPort>995</RemoteServerPort>
+      <!-- Whether the remote POP3 server supports TLS/SSL protection. -->
+      <RemoteServerEnableSSL>True</RemoteServerEnableSSL>
+
+      <!-- (Optional) Username used when authenticating to the remote POP3 server.  When supplied, it will override any values sent from the client. -->
+      <RemoteServerUsername></RemoteServerUsername>
+      <!-- (Optional) Password used when authenticating to the remote POP3 server.  When supplied, it will override any values sent from the client. -->
+      <RemoteServerPassword></RemoteServerPassword>
+
+      <!-- (Optional) Location where all incoming messages are saved as EML files. -->
+      <ExportDirectory></ExportDirectory>
+      
+      <!-- Where log files should be stored, if any.  Leave blank to avoid logging. -->
+      <!-- Date and instance variables can be encased in angle braces.  For example, "Logs\POP3Proxy{#}-{yyyy-MM-dd}.log". -->
+      <LogFile>Logs\POP3Proxy{#}-{yyyy-MM-dd}.log</LogFile>
+      <!-- Proxy logging level, determining how much information is logged.  Possible values: None, Critical, Error, Warning, Information, Verbose, Raw -->
+      <LogLevel>Verbose</LogLevel>
+    </Service1>
+  </POP3>
+</Settings>

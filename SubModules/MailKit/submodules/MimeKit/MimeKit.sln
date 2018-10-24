@@ -1,0 +1,119 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2010
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimeKit.Net45", "MimeKit\MimeKit.Net45.csproj", "{D5F54A4F-D84B-430F-9271-F7861E285B3E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\UnitTests.csproj", "{0225FDB7-CF63-4402-BB30-9B149AC06C2E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimeKit.Android", "MimeKit\MimeKit.Android.csproj", "{004B4019-62B7-4A15-AF2C-C20968845C46}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimeKit.iOS", "MimeKit\MimeKit.iOS.csproj", "{4C1288AD-12C8-4BF7-AED7-6C4DC539C856}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimeKit.Portable", "MimeKit\MimeKit.Portable.csproj", "{BE542CE1-F773-467E-8DED-D02B89C5040A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BouncyCastle.Android", "submodules\bc-csharp\crypto\BouncyCastle.Android.csproj", "{A0D302CB-8866-4AB1-98B9-F0772EABF5DF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BouncyCastle.iOS", "submodules\bc-csharp\crypto\BouncyCastle.iOS.csproj", "{0249241C-205E-4AC0-828B-90F822359B9E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.Data.Sqlite", "Mono.Data.Sqlite\Mono.Data.Sqlite.csproj", "{F26434C1-BA3D-41FB-B560-C009CB72B1B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Portable.Text.Encoding", "submodules\Portable.Text.Encoding\Portable.Text.Encoding\Portable.Text.Encoding.csproj", "{EEE48C75-11BE-4B50-B759-F85B5052D473}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Portable.Text.Encoding.WindowsUniversal81", "submodules\Portable.Text.Encoding\Portable.Text.Encoding\Portable.Text.Encoding.WindowsUniversal81.csproj", "{B76A64F9-B00E-4243-AE89-5D024CA3B436}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimeKit.WindowsUniversal81", "MimeKit\MimeKit.WindowsUniversal81.csproj", "{D9906B8C-7BBD-4CCE-AC7C-E9BCA020D20C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimeKit.NetStandard", "MimeKit\MimeKit.NetStandard.csproj", "{E8667DCE-A5BB-4D30-9815-FC8959E447F5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D5F54A4F-D84B-430F-9271-F7861E285B3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5F54A4F-D84B-430F-9271-F7861E285B3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5F54A4F-D84B-430F-9271-F7861E285B3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5F54A4F-D84B-430F-9271-F7861E285B3E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0225FDB7-CF63-4402-BB30-9B149AC06C2E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0225FDB7-CF63-4402-BB30-9B149AC06C2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0225FDB7-CF63-4402-BB30-9B149AC06C2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0225FDB7-CF63-4402-BB30-9B149AC06C2E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{004B4019-62B7-4A15-AF2C-C20968845C46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{004B4019-62B7-4A15-AF2C-C20968845C46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{004B4019-62B7-4A15-AF2C-C20968845C46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{004B4019-62B7-4A15-AF2C-C20968845C46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C1288AD-12C8-4BF7-AED7-6C4DC539C856}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C1288AD-12C8-4BF7-AED7-6C4DC539C856}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C1288AD-12C8-4BF7-AED7-6C4DC539C856}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C1288AD-12C8-4BF7-AED7-6C4DC539C856}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE542CE1-F773-467E-8DED-D02B89C5040A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE542CE1-F773-467E-8DED-D02B89C5040A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE542CE1-F773-467E-8DED-D02B89C5040A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE542CE1-F773-467E-8DED-D02B89C5040A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A0D302CB-8866-4AB1-98B9-F0772EABF5DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0D302CB-8866-4AB1-98B9-F0772EABF5DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0D302CB-8866-4AB1-98B9-F0772EABF5DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0D302CB-8866-4AB1-98B9-F0772EABF5DF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0249241C-205E-4AC0-828B-90F822359B9E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0249241C-205E-4AC0-828B-90F822359B9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0249241C-205E-4AC0-828B-90F822359B9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0249241C-205E-4AC0-828B-90F822359B9E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F26434C1-BA3D-41FB-B560-C009CB72B1B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F26434C1-BA3D-41FB-B560-C009CB72B1B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F26434C1-BA3D-41FB-B560-C009CB72B1B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F26434C1-BA3D-41FB-B560-C009CB72B1B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEE48C75-11BE-4B50-B759-F85B5052D473}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEE48C75-11BE-4B50-B759-F85B5052D473}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEE48C75-11BE-4B50-B759-F85B5052D473}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEE48C75-11BE-4B50-B759-F85B5052D473}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B76A64F9-B00E-4243-AE89-5D024CA3B436}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B76A64F9-B00E-4243-AE89-5D024CA3B436}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B76A64F9-B00E-4243-AE89-5D024CA3B436}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B76A64F9-B00E-4243-AE89-5D024CA3B436}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D9906B8C-7BBD-4CCE-AC7C-E9BCA020D20C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D9906B8C-7BBD-4CCE-AC7C-E9BCA020D20C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D9906B8C-7BBD-4CCE-AC7C-E9BCA020D20C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D9906B8C-7BBD-4CCE-AC7C-E9BCA020D20C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E8667DCE-A5BB-4D30-9815-FC8959E447F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E8667DCE-A5BB-4D30-9815-FC8959E447F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E8667DCE-A5BB-4D30-9815-FC8959E447F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E8667DCE-A5BB-4D30-9815-FC8959E447F5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {835CB316-68E1-4B7A-9392-920A18AD35CC}
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		Policies = $0
+		$0.StandardHeader = $1
+		$1.Text = @\n${FileName}\n \nAuthor: ${AuthorName} <${AuthorEmail}>\n\nCopyright (c) ${Year} ${CopyrightHolder}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the "Software"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE.\n
+		$0.TextStylePolicy = $3
+		$3.FileWidth = 120
+		$3.TabsToSpaces = False
+		$3.inheritsSet = null
+		$3.inheritsScope = text/plain
+		$3.scope = text/x-csharp
+		$0.CSharpFormattingPolicy = $4
+		$4.SpaceAfterCast = True
+		$4.scope = text/x-csharp
+		$4.IndentSwitchSection = False
+		$4.NewLinesForBracesInProperties = False
+		$4.NewLinesForBracesInAccessors = False
+		$4.NewLinesForBracesInAnonymousMethods = False
+		$4.NewLinesForBracesInControlBlocks = False
+		$4.NewLinesForBracesInAnonymousTypes = False
+		$4.NewLinesForBracesInObjectCollectionArrayInitializers = False
+		$4.NewLinesForBracesInLambdaExpressionBody = False
+		$4.NewLineForElse = False
+		$4.NewLineForCatch = False
+		$4.NewLineForFinally = False
+		$4.NewLineForClausesInQuery = False
+		$4.SpacingAfterMethodDeclarationName = True
+		$4.SpaceAfterMethodCallName = True
+	EndGlobalSection
+EndGlobal
