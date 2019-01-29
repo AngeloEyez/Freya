@@ -226,14 +226,17 @@ namespace Freya.Proxy
             {
                 if (LogWriter != null)
                 {
-                    lock (LogWriter)
-                    {
-                        LogWriter.Write("[" + DateTime.Now + "]\t" + sessionId + "\t\t" + minimalLogLevel.ToString().ToUpper() + "\t" + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
-                        LogWriter.Flush();
-                    }
+                    if (LogWriter.textLogEn)
+                        lock (LogWriter)
+                        {
+                            LogWriter.Write("[" + DateTime.Now + "]\t" + sessionId + "\t\t" + minimalLogLevel.ToString().ToUpper() + "\t" + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
+                            LogWriter.Flush();
+                        }
+
+                    if (!LogWriter.radioSend(message + (message.EndsWith("\r\n") ? "" : "\r\n")).Equals(FEnv.RADIO_OK))
+                        LogWriter.Write($"Error sending message to UI. SMTP Radio UI port :{LogWriter?.radioClient?.GetPort()}");
                 }
                 Console.WriteLine("[" + DateTime.Now + "]\t" + sessionId + "\t\t" + minimalLogLevel.ToString().ToUpper() + "\t" + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
-                LogWriter.radioSend("[" + DateTime.Now + "]\t" + sessionId + "\t\t" + minimalLogLevel.ToString().ToUpper() + "\t" + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
             }
         }
 
@@ -250,16 +253,21 @@ namespace Freya.Proxy
         {
             if ((int)currentLogLevel >= (int)minimalLogLevel)
             {
-                if (LogWriter != null)
+                try
                 {
-                    lock (LogWriter)
+                    if (LogWriter != null)
                     {
-                        LogWriter.Write("[" + DateTime.Now + "]\t" + sessionId + "\t" + connectionId + "\t" + minimalLogLevel.ToString().ToUpper() + "\t" + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
-                        LogWriter.Flush();
+                        if (LogWriter.textLogEn)
+                            lock (LogWriter)
+                            {
+                                LogWriter.Write("[" + DateTime.Now + "]\t" + sessionId + "\t" + connectionId + "\t" + minimalLogLevel.ToString().ToUpper() + "\t" + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
+                                LogWriter.Flush();
+                            }
+                        LogWriter.radioSend(connectionId + " " + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
                     }
                 }
+                catch (Exception ex){ Console.WriteLine(ex.Message); }
                 Console.WriteLine("[" + DateTime.Now + "]\t" + sessionId + "\t" + connectionId + "\t" + minimalLogLevel.ToString().ToUpper() + "\t" + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
-                LogWriter.radioSend("[" + DateTime.Now + "]\t" + sessionId + "\t" + connectionId + "\t" + minimalLogLevel.ToString().ToUpper() + "\t" + message + (message.EndsWith("\r\n") ? "" : "\r\n"));
             }
         }
 

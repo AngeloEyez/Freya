@@ -49,13 +49,31 @@
     </AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="BouncyCastle.Crypto, Version=1.8.2.0, Culture=neutral, PublicKeyToken=0e99375e54769942">
+      <HintPath>..\packages\BouncyCastle.1.8.2\lib\BouncyCastle.Crypto.dll</HintPath>
+    </Reference>
+    <Reference Include="FSharp.Core, Version=4.5.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\FSharp.Core.4.5.4\lib\net45\FSharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="HtmlAgilityPack, Version=1.8.11.0, Culture=neutral, PublicKeyToken=bd319b19eaf3b43a, processorArchitecture=MSIL">
+      <HintPath>..\packages\HtmlAgilityPack.1.8.11\lib\Net45\HtmlAgilityPack.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="ScrapySharp.Core, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\ScrapySharp.2.6.2\lib\net45\ScrapySharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="ScrapySharpAsync, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\ScrapySharp.2.6.2\lib\net45\ScrapySharpAsync.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Runtime.Caching" />
     <Reference Include="System.ServiceProcess" />
+    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -66,6 +84,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AutoDMS.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -78,6 +97,12 @@
     <Compile Include="FormSetting.Designer.cs">
       <DependentUpon>FormSetting.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormWait.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormWait.Designer.cs">
+      <DependentUpon>FormWait.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">
@@ -87,16 +112,14 @@
     <EmbeddedResource Include="FormSetting.resx">
       <DependentUpon>FormSetting.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="FormWait.resx">
+      <DependentUpon>FormWait.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <Compile Include="Properties\Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-      <DesignTime>True</DesignTime>
-    </Compile>
     <None Include="app.manifest">
       <SubType>Designer</SubType>
     </None>
@@ -105,6 +128,11 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="Properties\Settings.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Settings.settings</DependentUpon>
@@ -125,6 +153,27 @@
   <ItemGroup>
     <Content Include="christmas_angel_xkg_icon.ico" />
     <Content Include="OpaqueMail32.ico" />
+    <None Include="Resources\Decrypt.png" />
+    <None Include="Resources\dms_running.png" />
+    <None Include="Resources\dms_disable.png" />
+    <None Include="Resources\dms_enable.png" />
+    <None Include="Resources\angel.png" />
+    <None Include="Resources\angel2.png" />
+    <None Include="Resources\angel1.png" />
+    <None Include="Resources\QuotaUnAvailable.png" />
+    <None Include="Resources\QuotaAvailable.png" />
+    <None Include="Resources\MailDead.png" />
+    <None Include="Resources\warning.png" />
+    <None Include="Resources\letter.png" />
+    <None Include="Resources\Miner_AlwaysActive.png" />
+    <EmbeddedResource Include="Restarter.exe" />
+    <None Include="Resources\settings.png" />
+    <None Include="Resources\Miner_Active.png" />
+    <None Include="Resources\Miner_InActive.png" />
+    <None Include="Resources\Miner_Disabled.png" />
+    <None Include="Resources\Service_NotInstalled.png" />
+    <None Include="Resources\Service_Disabled.png" />
+    <None Include="Resources\Service_Enabled.png" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Freya.Proxy\Freya.Proxy.csproj">
@@ -139,6 +188,10 @@
       <Project>{6a0aecae-979a-43e1-a1d4-49b2372dd3f4}</Project>
       <Name>FreyaCore</Name>
     </ProjectReference>
+    <ProjectReference Include="..\SubModules\MailKit\MailKit\MailKit.Net45.csproj">
+      <Project>{7264d469-a390-4c10-9c87-daa37edd3c1d}</Project>
+      <Name>MailKit.Net45</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SubModules\ZetaIpc\Source\Runtime\ZetaIPC.csproj">
       <Project>{7b84d317-9d25-4f06-9bac-a246ed79b076}</Project>
       <Name>ZetaIPC</Name>
@@ -148,6 +201,9 @@
     <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>del /F /Q $(TargetDir)Logs\*.*</PreBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

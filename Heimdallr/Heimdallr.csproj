@@ -71,6 +71,11 @@
       <HintPath>..\packages\TaskScheduler.2.8.5\lib\net452\Microsoft.Win32.TaskScheduler.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="SimpleUpdater, Version=4.0.0.0, Culture=neutral, PublicKeyToken=c532149a76b9a64b, processorArchitecture=MSIL">
+      <HintPath>..\packages\fishlee.net.simpleupdater.4.3.0.0\lib\net45\SimpleUpdater.dll</HintPath>
+      <EmbedInteropTypes>False</EmbedInteropTypes>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Core" />
@@ -103,9 +108,9 @@
       <Project>{6a0aecae-979a-43e1-a1d4-49b2372dd3f4}</Project>
       <Name>FreyaCore</Name>
     </ProjectReference>
-    <ProjectReference Include="..\SubModules\SimpleUpdater\FSLib.App.SimpleUpdater\FSLib.App.SimpleUpdater.csproj">
-      <Project>{21a701d7-063b-48e9-ae2f-5586a954b830}</Project>
-      <Name>FSLib.App.SimpleUpdater</Name>
+    <ProjectReference Include="..\SubModules\ZetaIpc\Source\Runtime\ZetaIPC.csproj">
+      <Project>{7b84d317-9d25-4f06-9bac-a246ed79b076}</Project>
+      <Name>ZetaIPC</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

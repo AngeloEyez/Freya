@@ -27,6 +27,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.XPath;
 using OpaqueMail;
+using ZetaIpc.Runtime.Client;
+using MimeKit;
+using System.Linq;
+using System.Security.Cryptography;
+using MailKit;
 
 namespace Freya.Proxy
 {
@@ -35,7 +40,9 @@ namespace Freya.Proxy
     /// </summary>
     public class ImapProxy : ProxyBase
     {
-        
+        private bool _enable = false;
+        public bool proxyrunning { get; private set; } = false;
+
         #region Public Methods
         /// <summary>
         /// Start a IMAP proxy instance.
@@ -68,16 +75,18 @@ namespace Freya.Proxy
         /// <param name="logLevel">Proxy logging level, determining how much information is logged.</param>
         /// <param name="instanceId">The instance number of the proxy.</param>
         /// <param name="debugMode">Whether the proxy instance is running in DEBUG mode and should output full exception messages.</param>
-        public void Start(string acceptedIPs, IPAddress localIPAddress, int localPort, bool localEnableSsl, string remoteServerHostName, int remoteServerPort, bool remoteServerEnableSsl, NetworkCredential remoteServerCredential, string exportDirectory, string logFile, LogLevel logLevel, int instanceId, bool debugMode)
+        public void Start(string acceptedIPs, IPAddress localIPAddress, int localPort, bool localEnableSsl, string remoteServerHostName, int remoteServerPort, bool remoteServerEnableSsl, NetworkCredential remoteServerCredential, string exportDirectory, string logFile, LogLevel logLevel, int instanceId, bool debugMode,
+            bool LogWriterEnable = false,
+            IpcClient radioClient = null)
         {
             // Create the log writer.
             string logFileName = "";
             if (!string.IsNullOrEmpty(logFile))
             {
                 logFileName = ProxyFunctions.GetLogFileName(logFile, instanceId, localIPAddress.ToString(), remoteServerHostName, localPort, remoteServerPort);
-                LogWriter = new FreyaStreamWriter(logFileName, true, Encoding.UTF8, Constants.SMALLBUFFERSIZE);
+                LogWriter = new FreyaStreamWriter(logFileName, true, Encoding.UTF8, Constants.SMALLBUFFERSIZE, radioClient);
+                LogWriter.textLogEn = LogWriterEnable;
                 LogWriter.AutoFlush = true;
-
                 LogLevel = logLevel;
             }
 
@@ -85,7 +94,7 @@ namespace Freya.Proxy
             string fqdn = Functions.GetLocalFQDN();
             if (remoteServerHostName.ToUpper() == fqdn.ToUpper() && remoteServerPort == localPort)
             {
-                ProxyFunctions.Log(LogWriter, SessionId, "Cannot start service because the remote server host name {" + remoteServerHostName + "} and port {" + remoteServerPort.ToString() + "} is the same as this proxy, which would cause an infinite loop.", Proxy.LogLevel.Critical, LogLevel);
+                ProxyFunctions.Log(LogWriter, SessionId, "Cannot start IMAP service because the remote server host name {" + remoteServerHostName + "} and port {" + remoteServerPort.ToString() + "} is the same as this proxy, which would cause an infinite loop.", Proxy.LogLevel.Critical, LogLevel);
                 return;
             }
             IPHostEntry hostEntry = Dns.GetHostEntry(Dns.GetHostName());
@@ -93,23 +102,25 @@ namespace Freya.Proxy
             {
                 if (remoteServerHostName == hostIP.ToString() && remoteServerPort == localPort)
                 {
-                    ProxyFunctions.Log(LogWriter, SessionId, "Cannot start service because the remote server hostname {" + remoteServerHostName + "} and port {" + remoteServerPort.ToString() + "} is the same as this proxy, which would cause an infinite loop.", Proxy.LogLevel.Critical, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, "Cannot start IMAP service because the remote server hostname {" + remoteServerHostName + "} and port {" + remoteServerPort.ToString() + "} is the same as this proxy, which would cause an infinite loop.", Proxy.LogLevel.Critical, LogLevel);
                     return;
                 }
             }
 
-            ProxyFunctions.Log(LogWriter, SessionId, "Starting service.", Proxy.LogLevel.Information, LogLevel);
-            
+            ProxyFunctions.Log(LogWriter, SessionId, "IMAP Starting service.", Proxy.LogLevel.Information, LogLevel);
+
             // Attempt to start up to 3 times in case another service using the port is shutting down.
             int startAttempts = 0;
-            while (startAttempts < 3)
+            _enable = true;
+            while (_enable && startAttempts < 3)
             {
+                proxyrunning = true;
                 startAttempts++;
 
                 // If we've failed to start once, wait an extra 10 seconds.
                 if (startAttempts > 1)
                 {
-                    ProxyFunctions.Log(LogWriter, SessionId, "Attempting to start for the " + (startAttempts == 2 ? "2nd" : "3rd") + " time.", Proxy.LogLevel.Information, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, "IMAP Attempting to start for the " + (startAttempts == 2 ? "2nd" : "3rd") + " time.", Proxy.LogLevel.Information, LogLevel);
                     Thread.Sleep(10000 * startAttempts);
                 }
 
@@ -149,8 +160,8 @@ namespace Freya.Proxy
                     Listener = new TcpListener(localIPAddress, localPort);
                     Listener.Start();
 
-                    ProxyFunctions.Log(LogWriter, SessionId, "Service started.", Proxy.LogLevel.Information, LogLevel);
-                    ProxyFunctions.Log(LogWriter, SessionId, "Listening on address {" + localIPAddress.ToString() + "}, port {" + localPort + "}.", Proxy.LogLevel.Information, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, "IMAP Service started.", Proxy.LogLevel.Information, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, "IMAP Service Listening on address {" + localIPAddress.ToString() + "}, port {" + localPort + "}.", Proxy.LogLevel.Information, LogLevel);
 
                     Started = true;
 
@@ -164,8 +175,9 @@ namespace Freya.Proxy
                         {
                             if (LogWriter != null)
                                 LogWriter.Close();
-                            LogWriter = new FreyaStreamWriter(newLogFileName, true, Encoding.UTF8, Constants.SMALLBUFFERSIZE);
+                            LogWriter = new FreyaStreamWriter(newLogFileName, true, Encoding.UTF8, Constants.SMALLBUFFERSIZE, radioClient);
                             LogWriter.AutoFlush = true;
+                            LogWriter.textLogEn = LogWriterEnable;
                         }
 
                         try
@@ -194,7 +206,7 @@ namespace Freya.Proxy
                         }
                         catch (Exception ex)
                         {
-                            ProxyFunctions.Log(LogWriter, SessionId, "Error while processing connection: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
+                            ProxyFunctions.Log(LogWriter, SessionId, "Error while IMAP processing connection: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
                         }
                     }
                     return;
@@ -202,11 +214,12 @@ namespace Freya.Proxy
                 catch (Exception ex)
                 {
                     if (debugMode || System.Diagnostics.Debugger.IsAttached)
-                        ProxyFunctions.Log(LogWriter, SessionId, "Exception when starting proxy: " + ex.ToString(), Proxy.LogLevel.Critical, LogLevel);
+                        ProxyFunctions.Log(LogWriter, SessionId, "Exception when starting IMAP proxy: " + ex.ToString(), Proxy.LogLevel.Critical, LogLevel);
                     else
-                        ProxyFunctions.Log(LogWriter, SessionId, "Exception when starting proxy: " + ex.Message, Proxy.LogLevel.Critical, LogLevel);
+                        ProxyFunctions.Log(LogWriter, SessionId, "Exception when starting IMAP proxy: " + ex.Message, Proxy.LogLevel.Critical, LogLevel);
                 }
             }
+            proxyrunning = false;
         }
 
         /// <summary>
@@ -214,14 +227,18 @@ namespace Freya.Proxy
         /// </summary>
         public void Stop()
         {
-            ProxyFunctions.Log(LogWriter, SessionId, "Stopping service.", Proxy.LogLevel.Information, LogLevel);
+            ProxyFunctions.Log(LogWriter, SessionId, "IMAP Stopping service.", Proxy.LogLevel.Information, LogLevel);
 
-            Started = false;
+            while (proxyrunning)
+            {
+                _enable = false;
+                Started = false;
 
-            if (Listener != null)
-                Listener.Stop();
+                if (Listener != null)
+                    Listener.Stop();
+            }
 
-            ProxyFunctions.Log(LogWriter, SessionId, "Service stopped.", Proxy.LogLevel.Information, LogLevel);
+            ProxyFunctions.Log(LogWriter, SessionId, "IMAP Service stopped.", Proxy.LogLevel.Information, LogLevel);
         }
 
         /// <summary>
@@ -317,7 +334,7 @@ namespace Freya.Proxy
 
                         arguments.ExportDirectory = ProxyFunctions.GetXmlStringValue(navigator, "Settings/IMAP/Service" + i + "/ExportDirectory");
                         arguments.LogFile = ProxyFunctions.GetXmlStringValue(navigator, "Settings/IMAP/Service" + i + "/LogFile");
-                        
+
                         string logLevel = ProxyFunctions.GetXmlStringValue(navigator, "Settings/IMAP/Service" + i + "/LogLevel");
                         switch (logLevel.ToUpper())
                         {
@@ -357,6 +374,144 @@ namespace Freya.Proxy
                         proxyThread.Start(arguments);
                     }
                 }
+            }
+            catch
+            {
+                // Ignore errors if the XML settings file is malformed.
+            }
+
+            return imapProxies;
+        }
+
+        public static List<ImapProxy> StartProxiesFromFromRegistry(FRegSetting reg, IpcClient radioClient = null)
+        {
+            List<ImapProxy> imapProxies = new List<ImapProxy>();
+
+            try
+            {
+
+                //int imapServiceCount = ProxyFunctions.GetXmlIntValue(navigator, "/Settings/IMAP/ServiceCount");
+                int imapServiceCount = 1; //暫時僅支援1個proxy
+                for (int i = 1; i <= imapServiceCount; i++)
+                {
+                    ImapProxyArguments arguments = new ImapProxyArguments();
+                    arguments.AcceptedIPs = "127.0.0.1";
+
+                    string localIpAddress = "ANY";
+                    switch (localIpAddress)
+                    {
+                        // Treat blank values as "Any".
+                        case "":
+                        case "ANY":
+                            arguments.LocalIpAddress = IPAddress.Any;
+                            break;
+                        case "BROADCAST":
+                            arguments.LocalIpAddress = IPAddress.Broadcast;
+                            break;
+                        case "IPV6ANY":
+                            arguments.LocalIpAddress = IPAddress.IPv6Any;
+                            break;
+                        case "IPV6LOOPBACK":
+                            arguments.LocalIpAddress = IPAddress.IPv6Loopback;
+                            break;
+                        case "LOOPBACK":
+                            arguments.LocalIpAddress = IPAddress.Loopback;
+                            break;
+                        default:
+                            // Try to parse the local IP address.  If unable to, proceed to the next service instance.
+                            if (!IPAddress.TryParse(localIpAddress, out arguments.LocalIpAddress))
+                                continue;
+                            break;
+                    }
+
+                    arguments.LocalPort = 143;
+                    // If the port is invalid, proceed to the next service instance.
+                    if (arguments.LocalPort < 1)
+                        continue;
+
+                    arguments.LocalEnableSsl = false;
+
+                    arguments.RemoteServerHostName = reg.IMAPServerIP;
+                    // If the host name is invalid, proceed to the next service instance.
+                    if (string.IsNullOrEmpty(arguments.RemoteServerHostName))
+                        continue;
+
+                    arguments.RemoteServerPort = 993;
+                    // If the port is invalid, proceed to the next service instance.
+                    if (arguments.RemoteServerPort < 1)
+                        continue;
+
+                    arguments.RemoteServerEnableSsl = true;
+
+                    string remoteServerUsername = reg.EMail;
+                    if (!string.IsNullOrEmpty(remoteServerUsername))
+                    {
+                        arguments.RemoteServerCredential = new NetworkCredential();
+                        arguments.RemoteServerCredential.UserName = remoteServerUsername;
+                        arguments.RemoteServerCredential.Password = reg.getPassword();
+                    }
+
+                    string certificateLocationValue = "LOCALMACHINE";
+                    StoreLocation certificateLocation = StoreLocation.LocalMachine;
+                    if (certificateLocationValue.ToUpper() == "CURRENTUSER")
+                        certificateLocation = StoreLocation.CurrentUser;
+
+                    // Try to load the signing certificate based on its serial number first, then fallback to its subject name.
+                    string certificateValue = "";
+                    if (!string.IsNullOrEmpty(certificateValue))
+                        arguments.Certificate = CertHelper.GetCertificateBySerialNumber(certificateLocation, certificateValue);
+                    else
+                    {
+                        certificateValue = "";
+                        if (!string.IsNullOrEmpty(certificateValue))
+                            arguments.Certificate = CertHelper.GetCertificateBySubjectName(certificateLocation, certificateValue);
+                    }
+
+                    arguments.ExportDirectory = "";
+                    arguments.LogFile = @"Logs\IMAPProxy{#}-{yyyy-MM-dd}.log";
+
+                    string logLevel = reg.SMTPLogLevel;
+                    switch (logLevel.ToUpper())
+                    {
+                        case "NONE":
+                            arguments.LogLevel = LogLevel.None;
+                            break;
+                        case "CRITICAL":
+                            arguments.LogLevel = LogLevel.Critical;
+                            break;
+                        case "ERROR":
+                            arguments.LogLevel = LogLevel.Error;
+                            break;
+                        case "RAW":
+                            arguments.LogLevel = LogLevel.Raw;
+                            break;
+                        case "VERBOSE":
+                            arguments.LogLevel = LogLevel.Verbose;
+                            break;
+                        case "WARNING":
+                            arguments.LogLevel = LogLevel.Warning;
+                            break;
+                        case "INFORMATION":
+                        default:
+                            arguments.LogLevel = LogLevel.Information;
+                            break;
+                    }
+
+                    arguments.InstanceId = i;
+                    arguments.DebugMode = false;
+
+                    arguments.LogWriteEnable = reg.SMTPLogWriterEnable;
+                    arguments.radioClient = radioClient;
+
+                    // Remember the proxy in order to close it when the service stops.
+                    arguments.Proxy = new ImapProxy();
+                    imapProxies.Add(arguments.Proxy);
+
+                    Thread proxyThread = new Thread(new ParameterizedThreadStart(StartProxy));
+                    proxyThread.Name = "Freya IMAP Proxy";
+                    proxyThread.Start(arguments);
+                }
+
             }
             catch
             {
@@ -410,7 +565,7 @@ namespace Freya.Proxy
                 // Validate that the IP address is within an accepted range.
                 if (!ProxyFunctions.ValidateIP(arguments.AcceptedIPs, ip))
                 {
-                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Connection rejected from {" + ip + "} due to its IP address.", Proxy.LogLevel.Warning, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "IMAP Connection rejected from {" + ip + "} due to its IP address.", Proxy.LogLevel.Warning, LogLevel);
 
                     Functions.SendStreamString(clientStream, new byte[Constants.SMALLBUFFERSIZE], "500 IP address [" + ip + "] rejected.\r\n");
 
@@ -422,15 +577,18 @@ namespace Freya.Proxy
                     return;
                 }
 
-                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "New connection established from {" + ip + "}.", Proxy.LogLevel.Information, LogLevel);
+                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, $"IMAP connection {arguments.ConnectionId} established from {ip}.", Proxy.LogLevel.Information, LogLevel);
 
                 // If supported, upgrade the session's security through a TLS handshake.
                 if (arguments.LocalEnableSsl)
                 {
-                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Starting local TLS/SSL protection for {" + ip + "}.", Proxy.LogLevel.Information, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, $"IMAP Starting local TLS/SSL protection form {ip}.", Proxy.LogLevel.Information, LogLevel);
                     clientStream = new SslStream(clientStream);
                     ((SslStream)clientStream).AuthenticateAsServer(arguments.Certificate);
                 }
+                else
+                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, $"IMAP connection established from {ip}.", Proxy.LogLevel.Information, LogLevel);
+
 
                 // Connect to the remote server.
                 TcpClient remoteServerClient = new TcpClient(arguments.RemoteServerHostName, arguments.RemoteServerPort);
@@ -439,8 +597,11 @@ namespace Freya.Proxy
                 // If supported, upgrade the session's security through a TLS handshake.
                 if (arguments.RemoteServerEnableSsl)
                 {
-                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Starting remote TLS/SSL protection with {" + arguments.RemoteServerHostName + "}.", Proxy.LogLevel.Information, LogLevel);
-                    remoteServerStream = new SslStream(remoteServerStream);
+                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, $"IMAP Starting remote TLS/SSL protection with {arguments.RemoteServerHostName}.", Proxy.LogLevel.Information, LogLevel);
+                    //remoteServerStream = new SslStream(remoteServerStream);
+                    //Modify for Certification Error call back
+                    remoteServerStream = new SslStream(remoteServerStream, false, new RemoteCertificateValidationCallback((s, c, h, e) => { return true; }));
+
                     ((SslStream)remoteServerStream).AuthenticateAsClient(arguments.RemoteServerHostName);
                 }
 
@@ -512,6 +673,9 @@ namespace Freya.Proxy
             if (arguments.Credential != null)
                 UserName = arguments.Credential.UserName;
 
+            // MsgMod:
+            string cmdBuf = "";   // 開始傳Message的這條cmd buffer
+
             bool stillReceiving = true;
             try
             {
@@ -525,6 +689,7 @@ namespace Freya.Proxy
                         {
                             // Read data from the source and send it to its destination.
                             string stringRead = await clientStreamReader.ReadLineAsync();
+                            bool Hold = false;
 
                             if (stringRead != null)
                             {
@@ -627,8 +792,19 @@ namespace Freya.Proxy
                                                 processThread.Start(processMessageArguments);
                                             }
 
+                                            //處理Message
+                                            //string newMessage = DecryptMessage(message) + overRead;
+                                            //string newMessage = message + overRead;
+                                            stringRead = cmdBuf + "\n" + messageBuilder.ToString();
+                                            //cmdBuf = cmdBuf.Replace(messageLength.ToString(), newMessage.Length.ToString());
+
+
+                                            //await remoteServerStreamWriter.WriteAsync(newMessage);
+                                            //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("S: {0}", newMessage), Proxy.LogLevel.Raw, LogLevel);
+
                                             // We're no longer receiving a message, so continue.
                                             inMessage = false;
+                                            Hold = false;
                                             messageBuilder.Clear();
                                         }
                                     }
@@ -669,15 +845,24 @@ namespace Freya.Proxy
                                                 {
                                                     // Only proceed if we can parse the size of the message.
                                                     if (int.TryParse(stringRead.Substring(openBrace + 1, closeBrace - openBrace - 1), out messageLength))
+                                                    {
                                                         inMessage = true;
+                                                        cmdBuf = stringRead; // 記下這條CMD, 並hold住remoteServerStreamWriter
+                                                        Hold = true;
+                                                    }
                                                 }
                                             }
                                         }
+
+ 
                                     }
 
-                                    await remoteServerStreamWriter.WriteLineAsync(stringRead);
+                                    if (!Hold)
+                                    {
+                                        await remoteServerStreamWriter.WriteLineAsync(stringRead);
+                                        ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "S: " + stringRead, Proxy.LogLevel.Raw, LogLevel);
+                                    }
 
-                                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "S: " + stringRead, Proxy.LogLevel.Raw, LogLevel);
                                 }
                             }
                             else
@@ -686,13 +871,17 @@ namespace Freya.Proxy
                     }
                 }
             }
-            catch (IOException)
+            catch (IOException ex)
             {
                 // Ignore either stream being closed.
+                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "IOException: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
+
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException ex)
             {
                 // Ignore either stream being closed.
+                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "ObjectDisposedException: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
+
             }
             catch (Exception ex)
             {
@@ -714,6 +903,99 @@ namespace Freya.Proxy
                     remoteServerStream.Dispose();
             }
         }
+
+        private string DecryptMessage(string messageText)
+        {
+            byte[] messageTextByte = Encoding.UTF8.GetBytes(messageText);
+            MemoryStream mm = new MemoryStream(messageTextByte);
+
+            // keep track of each Stream opened and dispose it in finally section
+            var streamTracker = new List<Stream>();
+
+            try
+            {
+                MimeKit.MimeMessage message = MimeKit.MimeMessage.Load(mm);
+
+                // ===================================
+                // 處理郵件本文
+                // ===================================
+                /*
+                string FixedSignature = "OOOOOOOAAAAAAOOOOOO";
+                foreach (var part in message.BodyParts.OfType<TextPart>())
+                {
+                    int endBodyPos = part.Text.IndexOf("</BODY>", StringComparison.OrdinalIgnoreCase);
+                    if (endBodyPos > -1)
+                        part.Text = part.Text.Substring(0, endBodyPos) + FixedSignature + part.Text.Substring(endBodyPos);
+                    else
+                        part.Text += FixedSignature;
+                }
+                */
+
+                // ===================================
+                // 依照 Header資訊處理Message
+                // ===================================
+
+                // EncryptHelperTag = 1 or 110 : 附件檔案有加密，進行解密處理
+                // B7C1AC87EAE6BE46E67D084C16B0F3BE
+                string hdrName = MD5("EncryptHelperTag");
+                if (message.Headers.IndexOf(hdrName) >= 0 && (message.Headers[hdrName].Equals(MD5("1")) | message.Headers[hdrName].Equals(MD5("110"))))
+                {
+                    var iter = new MimeIterator(message);
+
+                    // collect our list of attachments and their parent multiparts
+                    while (iter.MoveNext())
+                    {
+                        var multipart = iter.Parent as Multipart;
+                        var part = iter.Current as MimeKit.MimePart;
+
+                        //if (multipart != null && part != null && part.IsAttachment)   // Supernotes 對某些附件沒有添加isattachment flag 
+                        if (multipart != null && part != null && part.ContentType.MimeType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+                        {
+                            MemoryStream msIn = new MemoryStream();
+                            MemoryStream msOut = new MemoryStream();
+                            streamTracker.Add(msIn);
+                            streamTracker.Add(msOut);
+
+                            part.Content.DecodeTo(msIn);
+                            FileDecryptor.Decrypt(msIn, msOut);
+                            part.Content = new MimeContent(msOut, ContentEncoding.Default);
+                            //測試: 寫入檔案到磁碟 (注意權限)
+                            //using (var stream = File.Create(@"files\" + part.ContentType.Name))
+                            //    part.Content.DecodeTo(stream);
+                        }
+                    }
+                }
+
+
+                // 修正系統解密文件 收件人 沒有帶mail的地址被去除
+                if (message.Headers.IndexOf("Mail-To") >= 0)
+                    message.Headers.Replace("To", message.Headers["Mail-To"]);
+                if (message.Headers.IndexOf("Mail-Cc") >= 0)
+                    message.Headers.Replace("Cc", message.Headers["Mail-Cc"]);
+                if (message.Headers.IndexOf("Mail-Bcc") >= 0)
+                    message.Headers.Replace("Bcc", message.Headers["Mail-Bcc"]);
+
+                //using (var stream = File.Create(@"files\" + "aaa.eml"))
+                //    message.WriteTo(stream);
+
+                return message.ToString();
+            }
+            catch (Exception ex)
+            {
+                ProxyFunctions.Log(LogWriter, SessionId, "", "DecryptMessage Excpetion: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
+                return string.Empty;
+            }
+            finally
+            {
+                if (mm != null)
+                    ((IDisposable)mm).Dispose();
+
+                foreach (var s in streamTracker)
+                    if (s != null)
+                        ((IDisposable)s).Dispose();
+            }
+        }
+
 
         /// <summary>
         /// Process a transmitted message to import any signing certificates for subsequent S/MIME encryption.
@@ -776,7 +1058,7 @@ namespace Freya.Proxy
             ImapProxyArguments arguments = (ImapProxyArguments)parameters;
 
             // Start the proxy using passed-in settings.
-            arguments.Proxy.Start(arguments.AcceptedIPs, arguments.LocalIpAddress, arguments.LocalPort, arguments.LocalEnableSsl, arguments.RemoteServerHostName, arguments.RemoteServerPort, arguments.RemoteServerEnableSsl, arguments.RemoteServerCredential, arguments.ExportDirectory, arguments.LogFile, arguments.LogLevel, arguments.InstanceId, arguments.DebugMode);
+            arguments.Proxy.Start(arguments.AcceptedIPs, arguments.LocalIpAddress, arguments.LocalPort, arguments.LocalEnableSsl, arguments.RemoteServerHostName, arguments.RemoteServerPort, arguments.RemoteServerEnableSsl, arguments.RemoteServerCredential, arguments.ExportDirectory, arguments.LogFile, arguments.LogLevel, arguments.InstanceId, arguments.DebugMode, arguments.LogWriteEnable, arguments.radioClient);
         }
 
         /// <summary>
@@ -806,6 +1088,23 @@ namespace Freya.Proxy
         }
         #endregion Private Methods
 
-       
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+        public static string MD5(string A_0)
+        {
+            string result = string.Empty;
+            try
+            {
+                byte[] bytes = new UnicodeEncoding().GetBytes(A_0);
+                byte[] value = ((HashAlgorithm)CryptoConfig.CreateFromName("MD5")).ComputeHash(bytes);
+                result = BitConverter.ToString(value).Replace("-", "");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("字符串md5加密錯誤" + ex.Message + ex.StackTrace);
+            }
+            return result;
+        }
+
     }
 }

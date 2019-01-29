@@ -29,7 +29,10 @@ using OpaqueMail;
 using MailKit.Net.Smtp;
 using MailKit;
 using MimeKit;
-
+using System.Linq;
+using System.Xml;
+using System.Text.RegularExpressions;
+using ZetaIpc.Runtime.Client;
 
 namespace Freya.Proxy
 {
@@ -38,9 +41,9 @@ namespace Freya.Proxy
     /// </summary>
     public class SmtpProxy : ProxyBase
     {
-        #region Private Members
         private Dictionary<X509Certificate2, DateTime> CertificateReminders = new Dictionary<X509Certificate2, DateTime>();
-        #endregion Private Members
+        private bool _enable = false;
+        public bool proxyrunning { get; private set; } = false;
 
         #region Public Methods
         /// <summary>
@@ -140,16 +143,20 @@ namespace Freya.Proxy
         /// <param name="instanceId">The instance number of the proxy.</param>
         /// <param name="smimeValidCertificates">Collection of certificates to be used when searching for recipient public keys.</param>
         /// <param name="debugMode">Whether the proxy instance is running in DEBUG mode and should output full exception messages.</param>
-        public void Start(string acceptedIPs, IPAddress localIPAddress, int localPort, bool localEnableSsl, string remoteServerHostName, int remoteServerPort, bool remoteServerEnableSsl, NetworkCredential remoteServerCredential, string from, string to, string cc, string bcc, string signature, SmimeSettingsMode smimeSettingsMode, bool smimeSigned, bool smimeEncryptedEnvelope, bool smimeTripleWrapped, bool smimeRemovePreviousOperations, bool sendCertificateReminders, string exportDirectory, string logFile, LogLevel logLevel, int instanceId, X509Certificate2Collection smimeValidCertificates, bool debugMode)
+        public void Start(string acceptedIPs, IPAddress localIPAddress, int localPort, bool localEnableSsl, string remoteServerHostName, int remoteServerPort, bool remoteServerEnableSsl, NetworkCredential remoteServerCredential, string from, string to, string cc, string bcc, string signature, SmimeSettingsMode smimeSettingsMode, bool smimeSigned, bool smimeEncryptedEnvelope, bool smimeTripleWrapped, bool smimeRemovePreviousOperations, bool sendCertificateReminders, string exportDirectory, string logFile, LogLevel logLevel, int instanceId, X509Certificate2Collection smimeValidCertificates, bool debugMode, 
+            string emailAddr = "", 
+            string webService = "", 
+            bool LogWriterEnable = false, 
+            IpcClient radioClient = null)
         {
             // Create the log writer.
             string logFileName = "";
             if (!string.IsNullOrEmpty(logFile))
             {
                 logFileName = ProxyFunctions.GetLogFileName(logFile, instanceId, localIPAddress.ToString(), remoteServerHostName, localPort, remoteServerPort);
-                LogWriter = new FreyaStreamWriter(logFileName, true, Encoding.UTF8, Constants.SMALLBUFFERSIZE);
+                LogWriter = new FreyaStreamWriter(logFileName, true, Encoding.UTF8, Constants.SMALLBUFFERSIZE, radioClient);
                 LogWriter.AutoFlush = true;
-
+                LogWriter.textLogEn = LogWriterEnable;
                 LogLevel = logLevel;
             }
 
@@ -170,18 +177,20 @@ namespace Freya.Proxy
                 }
             }
 
-            ProxyFunctions.Log(LogWriter, SessionId, "Starting service.", Proxy.LogLevel.Information, LogLevel);
+            ProxyFunctions.Log(LogWriter, SessionId, "SMTP Starting service on " + remoteServerHostName + ":" + remoteServerPort, Proxy.LogLevel.Information, LogLevel);
 
             // Attempt to start up to 3 times in case another service using the port is shutting down.
             int startAttempts = 0;
-            while (startAttempts < 3)
+            _enable = true;
+            while (_enable && startAttempts < 3)
             {
+                proxyrunning = true;
                 startAttempts++;
 
                 // If we've failed to start once, wait an extra 10 seconds.
                 if (startAttempts > 1)
                 {
-                    ProxyFunctions.Log(LogWriter, SessionId, "Attempting to start for the " + (startAttempts == 2 ? "2nd" : "3rd") + " time.", Proxy.LogLevel.Information, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, "SMTP Attempting to start for the " + (startAttempts == 2 ? "2nd" : "3rd") + " time.", Proxy.LogLevel.Information, LogLevel);
                     Thread.Sleep(10000 * startAttempts);
                 }
 
@@ -220,8 +229,8 @@ namespace Freya.Proxy
                     Listener = new TcpListener(localIPAddress, localPort);
                     Listener.Start();
 
-                    ProxyFunctions.Log(LogWriter, SessionId, "Service started.", Proxy.LogLevel.Information, LogLevel);
-                    ProxyFunctions.Log(LogWriter, SessionId, "Listening on address {" + localIPAddress.ToString() + "}, port {" + localPort + "}.", Proxy.LogLevel.Information, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, "SMTP Service started.", Proxy.LogLevel.Information, LogLevel);
+                    ProxyFunctions.Log(LogWriter, SessionId, "SMTP Listening on address {" + localIPAddress.ToString() + "}, port {" + localPort + "}.", Proxy.LogLevel.Information, LogLevel);
 
                     Started = true;
 
@@ -235,8 +244,9 @@ namespace Freya.Proxy
                         {
                             if (LogWriter != null)
                                 LogWriter.Close();
-                            LogWriter = new FreyaStreamWriter(newLogFileName, true, Encoding.UTF8, Constants.SMALLBUFFERSIZE);
+                            LogWriter = new FreyaStreamWriter(newLogFileName, true, Encoding.UTF8, Constants.SMALLBUFFERSIZE, radioClient);
                             LogWriter.AutoFlush = true;
+                            LogWriter.textLogEn = LogWriterEnable;
                         }
 
                         // Prepare the arguments for our new thread.
@@ -273,21 +283,31 @@ namespace Freya.Proxy
                         arguments.InstanceId = instanceId;
                         arguments.DebugMode = debugMode;
 
+                        arguments.EMailAddr = emailAddr;
+                        arguments.WebService = webService;
+
                         // Fork the thread and continue listening for new connections.
                         Thread processThread = new Thread(new ParameterizedThreadStart(ProcessConnection));
-                        processThread.Name = "OpaqueMail SMTP Proxy Connection";
+                        processThread.Name = "Freya SMTP Proxy Connection";
                         processThread.Start(arguments);
                     }
                     return;
                 }
-                catch (Exception ex)
+                catch (SocketException ex)
                 {
-                    if (debugMode || System.Diagnostics.Debugger.IsAttached)
-                        ProxyFunctions.Log(LogWriter, SessionId, "Exception when starting proxy: " + ex.ToString(), Proxy.LogLevel.Critical, LogLevel);
+                    if ((ex.SocketErrorCode == SocketError.Interrupted))
+                        // a blocking listen has been cancelled
+                        ProxyFunctions.Log(LogWriter, SessionId, "SMTP Listening thread: Receive Stop command, cancel TCPListener.", Proxy.LogLevel.Critical, LogLevel);
                     else
-                        ProxyFunctions.Log(LogWriter, SessionId, "Exception when starting proxy: " + ex.Message, Proxy.LogLevel.Critical, LogLevel);
+                    {
+                        if (debugMode || System.Diagnostics.Debugger.IsAttached)
+                            ProxyFunctions.Log(LogWriter, SessionId, "Exception when starting SMTP proxy: " + ex.ToString(), Proxy.LogLevel.Critical, LogLevel);
+                        else
+                            ProxyFunctions.Log(LogWriter, SessionId, "Exception when starting SMTP proxy: " + ex.Message, Proxy.LogLevel.Critical, LogLevel);
+                    }
                 }
             }
+            proxyrunning = false;
         }
 
         /// <summary>
@@ -295,14 +315,18 @@ namespace Freya.Proxy
         /// </summary>
         public void Stop()
         {
-            ProxyFunctions.Log(LogWriter, SessionId, "Stopping service.", Proxy.LogLevel.Information, LogLevel);
+            ProxyFunctions.Log(LogWriter, SessionId, "SMTP Stopping service.", Proxy.LogLevel.Information, LogLevel);
 
-            Started = false;
+            while (proxyrunning)
+            {
+                _enable = false;
+                Started = false;
 
-            if (Listener != null)
-                Listener.Stop();
+                if (Listener != null)
+                    Listener.Stop();
+            }
 
-            ProxyFunctions.Log(LogWriter, SessionId, "Service stopped.", Proxy.LogLevel.Information, LogLevel);
+            ProxyFunctions.Log(LogWriter, SessionId, "SMTP Service stopped.", Proxy.LogLevel.Information, LogLevel);
         }
 
         /// <summary>
@@ -486,7 +510,7 @@ namespace Freya.Proxy
             return smtpProxies;
         }
 
-        public static List<SmtpProxy> StartProxiesFromRegistry(FRegSetting reg)
+        public static List<SmtpProxy> StartProxiesFromRegistry(FRegSetting reg, IpcClient radioClient = null)
         {
             List<SmtpProxy> smtpProxies = new List<SmtpProxy>();
 
@@ -526,6 +550,7 @@ namespace Freya.Proxy
                             break;
                     }
 
+                    // Change to 587 for highack supernote, and enable SSL
                     arguments.LocalPort = 25;
                     // If the port is invalid, proceed to the next service instance.
                     if (arguments.LocalPort < 1)
@@ -609,8 +634,9 @@ namespace Freya.Proxy
                         }
                     }
 
-                    arguments.ExportDirectory = "";
+                    arguments.ExportDirectory = @"";
                     arguments.LogFile = @"Logs\SMTPProxy{#}-{yyyy-MM-dd}.log";
+                    //arguments.LogFile = "";  //沒有logfile name logwriter會不能動，連UI log都沒有，代處理
 
                     string logLevel = reg.SMTPLogLevel;
                     switch (logLevel.ToUpper())
@@ -642,6 +668,12 @@ namespace Freya.Proxy
                     arguments.InstanceId = i;
                     arguments.DebugMode = false;
 
+                    arguments.EMailAddr = reg.EMail;
+                    arguments.WebService = reg.WebServiceIP;
+
+                    arguments.LogWriteEnable = reg.SMTPLogWriterEnable;
+                    arguments.radioClient = radioClient;
+
                     // Remember the proxy in order to close it when the service stops.
                     arguments.Proxy = new SmtpProxy();
                     smtpProxies.Add(arguments.Proxy);
@@ -652,7 +684,7 @@ namespace Freya.Proxy
                 }
 
             }
-            catch {}
+            catch { }
 
             return smtpProxies;
         }
@@ -687,7 +719,7 @@ namespace Freya.Proxy
                 NetworkCredential credential = arguments.RemoteServerCredential;
                 string fromAddress = "";
                 string identity = "";
-                List<string> toList = new List<string>();
+                List<MailboxAddress> toList = new List<MailboxAddress>();
                 bool sending = false, inPlainAuth = false, inLoginAuth = false;
 
                 // A byte array to streamline bit shuffling.
@@ -738,7 +770,7 @@ namespace Freya.Proxy
                     return;
                 }
 
-                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "New connection established from {" + ip + "}.", Proxy.LogLevel.Information, LogLevel);
+                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "New SMTP connection established from {" + ip + "}.", Proxy.LogLevel.Information, LogLevel);
 
                 // Send our welcome message.
                 await Functions.SendStreamStringAsync(clientStreamWriter, "220 " + WelcomeMessage + "\r\n");
@@ -784,7 +816,7 @@ namespace Freya.Proxy
                                             string messageText = command.Substring(0, command.Length - 5);
 
                                             // Export the message to a local directory.
-                                            /*
+
                                             if (!string.IsNullOrEmpty(arguments.ExportDirectory))
                                             {
                                                 string messageId = Functions.ReturnBetween(messageText.ToLower(), "message-id: <", ">");
@@ -797,12 +829,17 @@ namespace Freya.Proxy
 
                                                 string fileName = ProxyFunctions.GetExportFileName(arguments.ExportDirectory, messageId, arguments.InstanceId, userName);
                                                 File.WriteAllText(fileName, messageText);
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "FileDumped: " + fileName, Proxy.LogLevel.Verbose, LogLevel);
+
                                             }
-                                            */
+
                                             //MailMessage message = new MailMessage(messageText, MailMessageProcessingFlags.IncludeRawHeaders | MailMessageProcessingFlags.IncludeRawBody);
                                             byte[] messageTextByte = Encoding.UTF8.GetBytes(messageText);
                                             MemoryStream mm = new MemoryStream(messageTextByte);
                                             MimeKit.MimeMessage message = MimeKit.MimeMessage.Load(mm);
+
+                                            if (message.Headers.IndexOf("Subject") < 0)
+                                                message.Headers.Replace("Subject", ""); //萬一郵件沒有主旨，.Subject是null，後面會出錯
 
                                             /*
                                             if (!string.IsNullOrEmpty(arguments.FixedFrom))
@@ -901,6 +938,56 @@ namespace Freya.Proxy
                                             }
                                             else
                                             {
+                                                try
+                                                {
+                                                    //精簡Subject
+                                                    message.Subject = message.Subject.Replace("：", ":");
+                                                    Regex ReRegex;
+                                                    if (message.Subject.Length > 0)
+                                                    {
+                                                        int nRe = 0, cRe = 0;
+                                                        while ((nRe = message.Subject.IndexOf(':', nRe + 1)) != -1)
+                                                            if (cRe++ >= 1) break;  //保留兩個
+                                                        if (nRe != -1)
+                                                        {
+                                                            ReRegex = new Regex(@"(?>(?:re|fwd|fw|轉呈|转寄|回信|回复) *: *)*", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+                                                            message.Subject = message.Subject.Substring(0, nRe + 1).Trim() + " " + ReRegex.Replace(message.Subject, "").Trim();
+                                                        }
+                                                    }
+
+
+                                                    //刪除body中不必要的文字
+                                                    string dummystr = "";
+                                                    foreach (var part in message.BodyParts.OfType<TextPart>())
+                                                    {
+                                                        // Legle statement
+                                                        do
+                                                        {
+                                                            dummystr = part.Text.Between("⌘", "⌘");
+                                                            if (dummystr == "") break;
+                                                            part.Text = part.Text.Replace("⌘" + dummystr + "⌘", "");
+                                                        } while (dummystr.Length > 0);
+
+                                                        // Mail From
+                                                        /*
+                                                        do
+                                                        {
+                                                            dummystr = part.Text.Between("mail from ip", "1.6.9.8B");
+                                                            if (dummystr == "") break;
+                                                            part.Text = part.Text.Replace("mail from ip" + dummystr + "1.6.9.8B", "");
+                                                        } while (dummystr.Length > 0);
+                                                        */
+                                                        ReRegex = new Regex(@"(mail\s*from\s*ip[\S\s]*1\.6\.9\.8B)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+                                                        part.Text = ReRegex.Replace(part.Text, "");
+
+                                                    }
+                                                }
+                                                catch (Exception e)
+                                                {
+                                                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "SMTP: Filter Subject / Message Excpetion -  " + e.ToString(), Proxy.LogLevel.Error, LogLevel);
+                                                }
+
+
 
                                                 //messageFrom = message.From.Address;
                                                 //messageSubject = message.Subject;
@@ -910,18 +997,49 @@ namespace Freya.Proxy
 
 
                                                 //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Forwarding message from {" + messageFrom + "} with subject {" + message.Subject + "} and size of {" + message.Size.ToString("N0") + "}.", Proxy.LogLevel.Verbose, LogLevel);
-                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Forwarding message from {" + messageFrom + "} with subject {" + message.Subject + "} and size of {" + "---" + "}.", Proxy.LogLevel.Verbose, LogLevel);
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Forwarding message from {" + messageFrom + "} with subject {" + message.Subject + "}.", Proxy.LogLevel.Information, LogLevel);
 
-
-                                                foreach (string toListAddress in toList)
+                                                //BCC header有些軟體不送，自己加入
+                                                foreach (MailboxAddress toListAddress in toList)
                                                 {
-                                                    MailboxAddress toListAddr = new MailboxAddress(toListAddress);
-                                                    if (!message.From.Contains(toListAddr))
+                                                    bool addressFound = false;
+
+                                                    foreach (MailboxAddress addr in message.To)
                                                     {
-                                                        message.From.Add(toListAddr);
-                                                        //message.Bcc.Add(toListAddress);
+                                                        if (addr.Address.Equals(toListAddress.Address))
+                                                        {
+                                                            addressFound = true;
+                                                            break;
+                                                        }
                                                     }
+                                                    if (addressFound)
+                                                        continue;
+
+                                                    foreach (MailboxAddress addr in message.Cc)
+                                                    {
+                                                        if (addr.Address.Equals(toListAddress.Address))
+                                                        {
+                                                            addressFound = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                    if (addressFound)
+                                                        continue;
+
+                                                    foreach (MailboxAddress addr in message.Bcc)
+                                                    {
+                                                        if (addr.Address.Equals(toListAddress.Address))
+                                                        {
+                                                            addressFound = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                    if (addressFound)
+                                                        continue;
+
+                                                    message.Bcc.Add(toListAddress);
                                                 }
+
 
                                                 /*
                                                 // Attempt to sign and encrypt the envelopes of all messages, but still send if unable to.
@@ -941,64 +1059,132 @@ namespace Freya.Proxy
                                                 }
                                                 */
 
-                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "C: " + message.Headers + "\r\n\r\n" + message.TextBody, Proxy.LogLevel.Raw, LogLevel);
-
-
+                                                ///
                                                 // Send the message.
-                                                //await smtpClient.SendAsync(message);
-                                                smtpClient.ServerCertificateValidationCallback = (s, c, h, e) => true;
-                                                smtpClient.LocalDomain = "ismetoad";
-                                                smtpClient.Connect(arguments.RemoteServerHostName, arguments.RemoteServerPort, false);
-                                                //smtpClient.Authenticate("mazarineq@gmail.com", "totem117");
-                                                smtpClient.Send(message);
-                                                smtpClient.Disconnect(true);
+                                                ///
 
-                                                // Check the signing certificate's expiration to determine if we should send a reminder.
-                                                /*
-                                                if (arguments.SendCertificateReminders && message.SmimeSigningCertificate != null)
+                                                ///
+                                                //先做webServer認證
+                                                ///
+                                                if (arguments.WebService.Length > 0)
                                                 {
-                                                    string expirationDateString = message.SmimeSigningCertificate.GetExpirationDateString();
-                                                    TimeSpan expirationTime = DateTime.Parse(expirationDateString) - DateTime.Now;
-                                                    if (expirationTime.TotalDays < 30)
+                                                    bool hasattachment = false;
+                                                    foreach (var attachment in message.Attachments)
                                                     {
-                                                        bool sendReminder = true;
-                                                        if (CertificateReminders.ContainsKey(message.SmimeSigningCertificate))
+                                                        if (!(attachment is MessagePart))
                                                         {
-                                                            TimeSpan timeSinceLastReminder = DateTime.Now - CertificateReminders[message.SmimeSigningCertificate];
-                                                            if (timeSinceLastReminder.TotalHours < 24)
-                                                                sendReminder = false;
+                                                            hasattachment = true;
                                                         }
+                                                    }
+                                                    if (!hasattachment)
+                                                        message.Headers.RemoveAll("X-Has-Attach");
 
-                                                        // Send the reminder message.
-                                                        if (sendReminder)
+                                                    string webServiceResults = null;
+                                                    List<string> receiverEmails = new List<string>();
+                                                    foreach (MailboxAddress toAddr in message.To)
+                                                    {
+                                                        receiverEmails.Add(toAddr.Address);
+                                                    }
+
+                                                    string authstr = string.Format("<approvalRequest><senderEmail>{0}</senderEmail><receiverEmails>{1}</receiverEmails><curVersion>1.6.9.8</curVersion><hasAttachment>{2}</hasAttachment><hasApprovalKeyword>false</hasApprovalKeyword><toEmail>{1}</toEmail><ccEmail>{3}</ccEmail><bccEmail>{4}</bccEmail></approvalRequest>"
+                                                                , arguments.EMailAddr
+                                                                , GetAddressListfromMessage(message.To)
+                                                                , hasattachment.ToString().ToLower()
+                                                                , GetAddressListfromMessage(message.Cc)
+                                                                , GetAddressListfromMessage(message.Bcc)
+                                                                );
+
+                                                    using (WebClient wc = new WebClient())
+                                                    {
+                                                        try
                                                         {
-                                                            OpaqueMail.MailMessage reminderMessage = new OpaqueMail.MailMessage(message.From, message.From);
-                                                            reminderMessage.Subject = "OpaqueMail: S/MIME Certificate Expires " + expirationDateString;
-                                                            reminderMessage.Body = "Your OpaqueMail S/MIME Certificate will expire in " + ((int)expirationTime.TotalDays) + " days on " + expirationDateString + ".\r\n\r\n" +
-                                                                "Certificate Subject Name: " + message.SmimeSigningCertificate.Subject + "\r\n" +
-                                                                "Certificate Serial Number: " + message.SmimeSigningCertificate.SerialNumber + "\r\n" +
-                                                                "Certificate Issuer: " + message.SmimeSigningCertificate.Issuer + "\r\n\r\n" +
-                                                                "Please renew or enroll a new certificate to continue protecting your email privacy.\r\n\r\n" +
-                                                                "This is an automated message sent from the OpaqueMail Proxy on " + Functions.GetLocalFQDN() + ".  " +
-                                                                "For more information, visit https://opaquemail.org/.";
+                                                            wc.Encoding = Encoding.UTF8;
+                                                            wc.Headers.Add(HttpRequestHeader.ContentType, "text/plain");
+                                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "PUT: " + "http://" + arguments.WebService + "/superNotesWS/approval/" + arguments.EMailAddr + "\r\n", Proxy.LogLevel.Raw, LogLevel);
+                                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "PUT: " + authstr + "\r\n\r\n", Proxy.LogLevel.Raw, LogLevel);
+                                                            webServiceResults = wc.UploadString("http://" + arguments.WebService + "/superNotesWS/approval/" + arguments.EMailAddr, "PUT", authstr);
+                                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, webServiceResults + "\r\n", Proxy.LogLevel.Verbose, LogLevel);
+                                                        }
+                                                        catch (Exception e)
+                                                        {
+                                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "SomthingWrong: " + e.ToString(), Proxy.LogLevel.Error, LogLevel);
+                                                        }
+                                                    }
 
-                                                            reminderMessage.SmimeEncryptedEnvelope = message.SmimeEncryptedEnvelope;
-                                                            reminderMessage.SmimeEncryptionOptionFlags = message.SmimeEncryptionOptionFlags;
-                                                            reminderMessage.SmimeSettingsMode = message.SmimeSettingsMode;
-                                                            reminderMessage.SmimeSigned = message.SmimeSigned;
-                                                            reminderMessage.SmimeSigningCertificate = message.SmimeSigningCertificate;
-                                                            reminderMessage.SmimeSigningOptionFlags = message.SmimeSigningOptionFlags;
-                                                            reminderMessage.SmimeTripleWrapped = message.SmimeTripleWrapped;
+                                                    //依照Webservice回應修改header
+                                                    if (!(message.Headers.IndexOf("X-Mailer") >= 0 ? message.Headers["X-Mailer"].Equals("Super Notes 1.6.9.8B") : false))
+                                                    {//非SuperNotes才要修改 Header
+                                                        message.Headers.Replace("X-Mailer", "Super Notes 1.6.9.8B");
+                                                        message.Headers.Replace("Sender", ((MailboxAddress)message.From.First()).Address);
+                                                        message.Headers.Replace("PriorityFlag", "Normal");
+                                                        message.Headers.Replace("ConfidentialityFlag", "Normal");
+                                                        message.Headers.Replace("MoodMark", "0");
 
-                                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Certificate with Serial Number {" + message.SmimeSigningCertificate.SerialNumber + "} expiring.  Sending reminder to {" + message.From.Address + "}.", Proxy.LogLevel.Information, LogLevel);
+                                                        message.Headers.RemoveAll("User-Agent");
 
-                                                            await smtpClient.SendAsync(reminderMessage);
+                                                        XmlDocument doc = new XmlDocument();
+                                                        doc.LoadXml(webServiceResults);
+                                                        string strbuf;
 
-                                                            CertificateReminders[message.SmimeSigningCertificate] = DateTime.Now;
+                                                        strbuf = doc.GetElementsByTagName("cctype")[0]?.InnerText;
+                                                        if (strbuf != null) message.Headers.Replace("CCType", strbuf);
+
+                                                        //Internet Mail需要審核 (FORWARD)
+                                                        if (doc.GetElementsByTagName("status")[0]?.InnerText.Equals("FORWARD") == true)
+                                                        {
+                                                            strbuf = doc.GetElementsByTagName("cclist")[0]?.InnerText;
+                                                            if (strbuf != null) message.Headers.Replace("CCList", strbuf);
+
+                                                            strbuf = doc.GetElementsByTagName("BGApprover")[0]?.InnerText;
+                                                            if (strbuf != null) message.Headers.Replace("csnewbg", strbuf);
+
+                                                            strbuf = doc.GetElementsByTagName("ApprovalBG")[0]?.InnerText;
+                                                            if (strbuf != null) message.Headers.Replace("csbg", strbuf);
+
+                                                            strbuf = doc.GetElementsByTagName("ApprovalBU")[0]?.InnerText;
+                                                            if (strbuf != null) message.Headers.Replace("csbu", strbuf);
+
+                                                            strbuf = doc.GetElementsByTagName("isInternetMail")[0]?.InnerText;
+                                                            if (strbuf != null) message.Headers.Replace("csflag", strbuf);
+
+                                                            strbuf = doc.GetElementsByTagName("isInternetSenderWhiteList")[0]?.InnerText;
+                                                            if (strbuf != null) message.Headers.Replace("cswhite", strbuf);
+
+                                                            strbuf = doc.GetElementsByTagName("approver")[0]?.InnerText;
+                                                            //strbuf = "chia-wen.huang@mail.foxconn.com";
+                                                            if (strbuf != null)
+                                                            {
+                                                                message.Headers.Replace("internetapprover", strbuf);
+                                                                message.Headers.Replace("savEnterSendTo", message.Headers["To"]);   // Actual To
+                                                                if (message.Headers.Contains("Cc"))
+                                                                    message.Headers.Replace("savEnterCopyTo", message.Headers["Cc"]);   // Actual CC
+                                                                if (message.Headers.Contains("Bcc"))
+                                                                    message.Headers.Replace("savEnterBlindTo", message.Headers["Bcc"]);  // Actual BCC
+                                                                message.Headers.Replace("savSubject", message.Subject);             // Actual subject
+                                                                message.Headers.Replace("To", strbuf);
+                                                                message.Headers.RemoveAll("Cc");
+                                                                message.Headers.RemoveAll("Bcc");
+                                                                message.Subject = "[Approve Required]" + message.Subject;
+                                                            }
                                                         }
                                                     }
                                                 }
-                                                */
+
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "C: HeaderList:\r\n" + string.Join("\r\n", message.Headers), Proxy.LogLevel.Verbose, LogLevel);
+                                                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "C: MessageTextBody: -------------------------------------\r\n" + message.TextBody + "\r\n-----------------------------------------------------\r\n", Proxy.LogLevel.Raw, LogLevel);
+                                                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "C: Message: -------------------------------------\r\n" + message.ToString() + "\r\n-----------------------------------------------------\r\n", Proxy.LogLevel.Raw, LogLevel);
+                                                
+                                                smtpClient.ServerCertificateValidationCallback = (s, c, h, e) => true;  //ignore SSL certification
+                                                smtpClient.LocalDomain = "ismetoad";    // for Foxconn internal SMTP server
+                                                smtpClient.Connect(arguments.RemoteServerHostName, arguments.RemoteServerPort, false);
+                                                //smtpClient.Authenticate("xxx@gmail.com", "password");
+                                                smtpClient.Send(message);
+                                                smtpClient.Disconnect(true);
+
+
+                                                if (mm != null)
+                                                    ((IDisposable)mm).Dispose();
+
                                             }
 
                                             await Functions.SendStreamStringAsync(clientStreamWriter, "250 Forwarded\r\n");
@@ -1189,7 +1375,10 @@ namespace Freya.Proxy
                                             case "RCPT":
                                                 // Acknolwedge recipients.
                                                 if (commandParts.Length > 1 && commandParts[1].Length > 6)
-                                                    toList.Add(commandParts[1].Substring(5, commandParts[1].Length - 6));
+                                                {
+                                                    //toList.Add(commandParts[1].Substring(5, commandParts[1].Length - 6)); //toList原本是List<string>，有些軟體送出來的TO:<xxx@xxx.xxx>會抓錯
+                                                    toList.Add(MailboxAddress.Parse(commandParts[1].Remove(0, 3)));
+                                                }
                                                 await Functions.SendStreamStringAsync(clientStreamWriter, "250 OK\r\n");
                                                 ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "S: 250 OK", Proxy.LogLevel.Raw, LogLevel);
                                                 break;
@@ -1273,7 +1462,7 @@ namespace Freya.Proxy
             }
             finally
             {
-                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Connection from {" + ip + "} closed after transmitting {" + bytesTransmitted.ToString("N0") + "} bytes.", Proxy.LogLevel.Information, LogLevel);
+                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, $"SMTP Connection closed after transmitting {FFunc.GetSizeString(bytesTransmitted)}.", Proxy.LogLevel.Information, LogLevel);
 
                 // Clean up after any unexpectedly closed connections.
                 if (clientStreamWriter != null)
@@ -1296,8 +1485,25 @@ namespace Freya.Proxy
             SmtpProxyArguments arguments = (SmtpProxyArguments)parameters;
 
             // Start the proxy using passed-in settings.
-            arguments.Proxy.Start(arguments.AcceptedIPs, arguments.LocalIpAddress, arguments.LocalPort, arguments.LocalEnableSsl, arguments.RemoteServerHostName, arguments.RemoteServerPort, arguments.RemoteServerEnableSsl, arguments.RemoteServerCredential, arguments.FixedFrom, arguments.FixedTo, arguments.FixedCC, arguments.FixedBcc, arguments.FixedSignature, arguments.SmimeSettingsMode, arguments.SmimeSigned, arguments.SmimeEncryptedEnvelope, arguments.SmimeTripleWrapped, arguments.SmimeRemovePreviousOperations, arguments.SendCertificateReminders, arguments.ExportDirectory, arguments.LogFile, arguments.LogLevel, arguments.InstanceId, arguments.SmimeValidCertificates, arguments.DebugMode);
+            arguments.Proxy.Start(arguments.AcceptedIPs, arguments.LocalIpAddress, arguments.LocalPort, arguments.LocalEnableSsl, arguments.RemoteServerHostName, arguments.RemoteServerPort, arguments.RemoteServerEnableSsl, arguments.RemoteServerCredential, arguments.FixedFrom, arguments.FixedTo, arguments.FixedCC, arguments.FixedBcc, arguments.FixedSignature, arguments.SmimeSettingsMode, arguments.SmimeSigned, arguments.SmimeEncryptedEnvelope, arguments.SmimeTripleWrapped, arguments.SmimeRemovePreviousOperations, arguments.SendCertificateReminders, arguments.ExportDirectory, arguments.LogFile, arguments.LogLevel, arguments.InstanceId, arguments.SmimeValidCertificates, arguments.DebugMode, arguments.EMailAddr, arguments.WebService, arguments.LogWriteEnable, arguments.radioClient);
         }
+
+
+        /// <summary>
+        /// Get address list with "," from InternetAddressList  in Mailkit message
+        /// </summary>
+        ///
+        private static string GetAddressListfromMessage(InternetAddressList addrList)
+        {
+            List<string> Emails = new List<string>();
+            foreach (MailboxAddress toAddr in addrList)
+            {
+                Emails.Add(toAddr.Address);
+            }
+            return string.Join(",", Emails);
+        }
+
+
         #endregion Private Methods
     }
 }

@@ -18,6 +18,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using OpaqueMail;
+using ZetaIpc.Runtime.Client;
 
 namespace Freya.Proxy
 {
@@ -26,6 +27,9 @@ namespace Freya.Proxy
     /// </summary>
     public struct ImapProxyArguments
     {
+        public bool LogWriteEnable;
+        public IpcClient radioClient;
+
         /// <summary>IP addresses to accept connections from.</summary>
         public string AcceptedIPs;
         /// <summary>Certificate to authenticate the server.</summary>
@@ -220,6 +224,13 @@ namespace Freya.Proxy
     /// </summary>
     public struct SmtpProxyArguments
     {
+        /// <summary>WebService IP for SuperNote</summary>
+        public string WebService;
+        /// <summary>Email address for SuperNote</summary>
+        public string EMailAddr;
+        public bool LogWriteEnable;
+        public IpcClient radioClient;
+
         /// <summary>IP addresses to accept connections from.</summary>
         public string AcceptedIPs;
         /// <summary>Certificate to authenticate the server.</summary>
@@ -282,6 +293,7 @@ namespace Freya.Proxy
         
         /// <summary>SMTP Proxy to start.</summary>
         public SmtpProxy Proxy;
+
     }
 
     /// <summary>
@@ -289,6 +301,12 @@ namespace Freya.Proxy
     /// </summary>
     public struct SmtpProxyConnectionArguments
     {
+        /// <summary>WebService IP for SuperNote</summary>
+        public string WebService;
+        /// <summary>Email address for SuperNote</summary>
+        public string EMailAddr;
+
+
         /// <summary>IP addresses to accept connections from.</summary>
         public string AcceptedIPs;
         /// <summary>TCP connection to the client.</summary>

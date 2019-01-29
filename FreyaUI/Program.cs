@@ -14,21 +14,91 @@
  */
 
 using System;
+using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Freya
 {
     static class Program
     {
+        [DllImport("User32.dll")]
+        private static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+
+        /// <summary>
+        /// 根据窗口标题查找窗体
+        /// </summary>
+        /// <param name="lpClassName"></param>
+        /// <param name="lpWindowName"></param>
+        /// <returns></returns>
+        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "FindWindow")]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        /// <summary>
+        /// 根据句柄查找进程ID
+        /// </summary>
+        /// <param name="hwnd"></param>
+        /// <param name="ID"></param>
+        /// <returns></returns>
+        [System.Runtime.InteropServices.DllImport("User32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        public static extern int GetWindowThreadProcessId(IntPtr hwnd, out int ID);
+
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main()
         {
+            //If already running another process, bring to front and exit myself.
+            string ProcessName = Process.GetCurrentProcess().ProcessName;
+            IntPtr hWnd = new IntPtr(0);
+            using (Process process = ProcessGet(ProcessName))
+                if (process != null)
+                {
+                    try
+                    {
+                        IntPtr h = process.MainWindowHandle;
+                        if (h.ToInt32() == 0)
+                        {
+                            h = FindWindow(null, "Freya" + FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion.ToString());
+
+                            int id = -1;
+                            GetWindowThreadProcessId(h, out id);
+                            if (id == process.Id)
+                                hWnd = h;
+                        }
+                        else
+                            hWnd = h;
+                    }
+                    catch { }
+                }
+
+            if (hWnd != new IntPtr(0))
+            {
+                SwitchToThisWindow(hWnd, true);
+                Environment.Exit(1);
+            }
+
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Freya());
+        }
+
+        static Process ProcessGet(string processNameToGet)
+        {
+            if (processNameToGet == "")
+                return null;
+
+            int ProcessID = Process.GetCurrentProcess().Id;
+
+            Process[] processes = Process.GetProcessesByName(processNameToGet); ;
+            foreach (Process process in processes)
+                if (process.Id != ProcessID)
+                    return process;
+
+            return null;
         }
 
     }

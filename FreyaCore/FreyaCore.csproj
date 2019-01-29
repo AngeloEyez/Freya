@@ -46,6 +46,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -56,13 +57,24 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Constants.cs" />
+    <Compile Include="Encryptor.cs" />
+    <Compile Include="FileDecryptor.cs" />
     <Compile Include="Func.cs" />
     <Compile Include="JsonObj.cs" />
+    <Compile Include="LogWriter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Status.cs" />
+    <Compile Include="SubstringExtensions.cs" />
+    <Compile Include="Worker.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SubModules\ZetaIpc\Source\Runtime\ZetaIPC.csproj">
+      <Project>{7b84d317-9d25-4f06-9bac-a246ed79b076}</Project>
+      <Name>ZetaIPC</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

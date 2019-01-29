@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Net;
 using Newtonsoft.Json;
+using System.Net.NetworkInformation;
+using ZetaIpc.Runtime.Client;
 
 namespace Freya
 {
@@ -51,23 +53,27 @@ namespace Freya
             }
         }
 
-        public static void GetSettingsFromRegistry(FRegSetting RegSetting)
-        {
-            RegSetting.EMail = (string)FFunc.GetRegKey("EMail");
-            RegSetting.SMTPServerIP = (string)FFunc.GetRegKey("SmtpServerIp");
-            RegSetting.WebServiceIP = (string)FFunc.GetRegKey("WebService");
-            RegSetting.SMTPLogLevel = (string)FFunc.GetRegKey("SMTPLogLevel");
-
-            RegSetting.LogLevel = (FConstants.FreyaLogLevel)Convert.ToInt16(FFunc.GetRegKey("LogLevel"));
-            RegSetting.FeatureByte = (FConstants.FeatureByte)Convert.ToInt32(FFunc.GetRegKey("FeatureByte"));
-        }
-
         public static bool HasRight(FConstants.FeatureByte target)
         {
-            FConstants.FeatureByte id = (FConstants.FeatureByte)Convert.ToInt32(FFunc.GetRegKey("FeatureByte"));
+            FConstants.FeatureByte fb = (FConstants.FeatureByte)Convert.ToInt32(FFunc.GetRegKey("FeatureByte"));
 
-            return ((id & target) == target);
+            return ((fb & target) == target);
         }
+
+        public static void DelRight(FConstants.FeatureByte target)
+        {
+            FConstants.FeatureByte fb = (FConstants.FeatureByte)Convert.ToInt32(FFunc.GetRegKey("FeatureByte"));
+            fb = (fb & (FConstants.FeatureByte.ALL ^ target)); //刪除
+            FFunc.SetRegKey("FeatureByte", Convert.ToInt32(fb));
+        }
+
+        public static void AddRight(FConstants.FeatureByte target)
+        {
+            FConstants.FeatureByte fb = (FConstants.FeatureByte)Convert.ToInt32(FFunc.GetRegKey("FeatureByte"));
+            fb = (fb | target); //增加
+            FFunc.SetRegKey("FeatureByte", Convert.ToInt32(fb));
+        }
+        
 
         public static void SingleInstance()
         {
@@ -99,8 +105,6 @@ namespace Freya
             }
         }
 
-
-
         public static bool Heimdallr(string cmd)
         {
             string target = System.IO.Path.Combine(Application.StartupPath, @"heimdallr.exe");
@@ -124,11 +128,11 @@ namespace Freya
                 {
                     p.Start();
                     //p.WaitForInputIdle(); //讓 Process 元件等候相關的處理序進入閒置狀態。 
-                    p.WaitForExit(); //設定要等待相關的處理序結束的時間，並且阻止目前的執行緒執行，直到等候時間耗盡或者處理序已經結束為止。 
+                    //p.WaitForExit(); //設定要等待相關的處理序結束的時間，並且阻止目前的執行緒執行，直到等候時間耗盡或者處理序已經結束為止。 
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Freya need to be run as Administrator to work.\n " + ex.ToString());
+                    MessageBox.Show("Freya need to be run as Administrator to work.\r\nPlease click yes if ask for permission." + ex.ToString());
                     return false;
                 }
 
@@ -142,7 +146,92 @@ namespace Freya
                 return true;
             }
             else
+            {
+                MessageBox.Show("Can't find heimdallr.exe.\r\nCheck your installation, make sure all file exists.");
                 return false;
+            }
+        }
+
+        public static class FreePortHelper
+        {
+            private static readonly Random Random = new Random(Guid.NewGuid().GetHashCode());
+            public static readonly List<int> ReservedPorts = new List<int>();
+
+            /// <summary>
+            /// Gets a free port on the current machine.
+            /// </summary>
+            public static int GetFreePort(int startPort = 9000)
+            {
+                if (startPort > 64000)
+                    startPort -= 1000;
+                else if (startPort < 6000)
+                    startPort = 6000;
+
+                for (var i = 0; i < 500; ++i)
+                {
+                    var port = Random.Next(startPort, startPort + 1000);
+                    if (isPortFree(port))
+                    {
+                        ReservedPorts.Add(port);
+                        return port;
+                    }
+                }
+
+                throw new Exception("Unable to acquire free port.");
+            }
+
+            private static bool isPortFree(int port)
+            {
+                if (ReservedPorts.Contains(port))
+                {
+                    return false;
+                }
+                else
+                {
+                    // http://stackoverflow.com/a/570126/107625
+
+                    var globalProperties = IPGlobalProperties.GetIPGlobalProperties();
+                    var informations = globalProperties.GetActiveTcpListeners();
+
+                    return informations.All(information => information.Port != port);
+                }
+            }
+        }
+
+        public static string[] GetWorkerRuntimeName()
+        {
+            string[] workerRuntimeName = new string[FConstants.WorkerFileName.Length];
+            for (int i = 0; i<FConstants.WorkerFileName.Length; i++)
+            {
+                workerRuntimeName[i] = FConstants.WorkerFileName[i].Substring(0, FConstants.WorkerFileName[i].LastIndexOf(".")) + "." + FConstants.WorkerExtentionString;
+            }
+            return workerRuntimeName;
+        }
+
+        public static string GetSizeString(ulong bytes)
+        {
+            string transmittedStr;
+            if (bytes < 1024)
+                transmittedStr = string.Format("{0:#} bytes", bytes);
+            else if (bytes >= 1024 && bytes < 1048576)
+                transmittedStr = string.Format("{0:#.#} Kbs", bytes / 1024);
+            else if (bytes >= 1048576 && bytes < 1073741824)
+                transmittedStr = string.Format("{0:#.##} Mbs", bytes / 1024/1024);
+            else
+                transmittedStr = string.Format("{0:#.##} Gbs", bytes / 1024 / 1024 / 1024);
+            return transmittedStr;
+        }
+    }
+
+
+    public class FIpcClient : IpcClient
+    {
+        public string Send(string cmd, string data, string data2 = null)
+        {
+            if (data2 != null)
+                return base.Send(JsonConvert.SerializeObject(new FMsg { Type = cmd, Data = data, Data2 = data2 }));
+            else
+                return base.Send(JsonConvert.SerializeObject(new FMsg { Type = cmd, Data = data }));
         }
     }
 }

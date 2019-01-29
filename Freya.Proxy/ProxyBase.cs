@@ -99,6 +99,13 @@ namespace Freya.Proxy
                 }
             }
         }
+
+        /*
+        public void SetRadioClientPort(int p)
+        {
+            LogWriter.SetPort(p);
+        }
+        */
         #endregion Public Methods
     }
 
@@ -107,18 +114,20 @@ namespace Freya.Proxy
     /// </summary>
     public class FreyaStreamWriter : StreamWriter
     {
-        protected IpcClient radioClient = null;
+        public IpcClient radioClient = null;
+        public bool textLogEn = true;
 
-        public FreyaStreamWriter(string path, bool append, Encoding encoding, int bufferSize) : base (path, append,encoding,bufferSize)
+        public FreyaStreamWriter(string path, bool append, Encoding encoding, int bufferSize, IpcClient radioclient = null) : base (path, append, encoding, bufferSize)
         {
-            // Create radioClient
-            radioClient = new IpcClient();
-            radioClient.Initialize(FConstants.IPCPortMainUI);
+            //radioClient = radioclient;
         }
 
-        public string radioSend(string msg)
+        public string radioSend(string msg, FConstants.FreyaLogLevel loglevel = FConstants.FreyaLogLevel.Normal)
         {
-            return radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = msg, Loglevel = FConstants.FreyaLogLevel.ProxyInfo }));
+            if (radioClient != null)
+                return radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = msg, Loglevel = loglevel }));
+            else
+                return "Proxy radioClient is null.";
         }
 
     }

