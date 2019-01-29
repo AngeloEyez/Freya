@@ -33,7 +33,7 @@ namespace Freya.Proxy
         /// <summary>A unique connection identifier for logging.</summary>
         protected int ConnectionId = 0;
         /// <summary>StreamWriter object to output event logs and exception information.</summary>
-        protected FreyaStreamWriter LogWriter = null;
+        protected FreyaStreamWriter LogWriter = null, LogWriter2 = null;
         /// <summary>A collection of all S/MIME signing certificates imported during this session.</summary>
         protected X509Certificate2Collection SmimeCertificatesReceived = new X509Certificate2Collection();
         /// <summary>The last command received from the client.</summary>

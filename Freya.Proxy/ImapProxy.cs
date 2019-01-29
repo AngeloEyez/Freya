@@ -88,6 +88,10 @@ namespace Freya.Proxy
                 LogWriter.textLogEn = LogWriterEnable;
                 LogWriter.AutoFlush = true;
                 LogLevel = logLevel;
+
+                LogWriter2 = new FreyaStreamWriter(logFileName+"2", true, Encoding.UTF8, Constants.SMALLBUFFERSIZE, radioClient);
+                LogWriter2.textLogEn = LogWriterEnable;
+                LogWriter2.AutoFlush = true;
             }
 
             // Make sure the remote server isn't an infinite loop back to this server.
@@ -587,7 +591,9 @@ namespace Freya.Proxy
                     ((SslStream)clientStream).AuthenticateAsServer(arguments.Certificate);
                 }
                 else
+                {
                     ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, $"IMAP connection established from {ip}.", Proxy.LogLevel.Information, LogLevel);
+                }
 
 
                 // Connect to the remote server.
@@ -675,6 +681,8 @@ namespace Freya.Proxy
 
             // MsgMod:
             string cmdBuf = "";   // 開始傳Message的這條cmd buffer
+            bool ignore = false;
+            int count = 0;
 
             bool stillReceiving = true;
             try
@@ -689,7 +697,6 @@ namespace Freya.Proxy
                         {
                             // Read data from the source and send it to its destination.
                             string stringRead = await clientStreamReader.ReadLineAsync();
-                            bool Hold = false;
 
                             if (stringRead != null)
                             {
@@ -708,7 +715,9 @@ namespace Freya.Proxy
                                         if (commandParts[1] == "LOGIN" && commandParts.Length == 4)
                                             messageRelayed = TransformLogin(remoteServerStreamWriter, stringRead, arguments, ref UserName);
                                         else
+                                        {
                                             ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "C: " + stringRead, Proxy.LogLevel.Raw, LogLevel);
+                                        }
 
                                         // Remember the previous command.
                                         if (commandParts[1].ToUpper() == "UID" && commandParts.Length > 2)
@@ -774,10 +783,21 @@ namespace Freya.Proxy
                                     if (inMessage)
                                     {
                                         messageBuilder.AppendLine(stringRead);
-                                        if (messageBuilder.Length >= messageLength)
+                                        //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), $"# {messageBuilder.Length}/{messageLength}MessageAppend:{stringRead}", Proxy.LogLevel.Raw, LogLevel);
+
+                                        if (messageBuilder.Length >= messageLength || stringRead.Equals(")"))
                                         {
+                                            //Build message
+                                            string message, endstr = string.Empty;
+                                            if (messageBuilder.Length < messageLength)
+                                            {
+                                                message = messageBuilder.ToString(0, messageBuilder.ToString().LastIndexOf(")"));
+                                                endstr = ")";
+                                            }
+                                            else
+                                                message = messageBuilder.ToString(0, messageLength);
+                                            
                                             // If the message has been completed and it contains a signature, process it.
-                                            string message = messageBuilder.ToString(0, messageLength);
                                             if (message.IndexOf("application/x-pkcs7-signature") > -1 || message.IndexOf("application/pkcs7-mime") > -1 || !string.IsNullOrEmpty(arguments.ExportDirectory))
                                             {
                                                 Thread processThread = new Thread(new ParameterizedThreadStart(ProcessMessage));
@@ -792,19 +812,39 @@ namespace Freya.Proxy
                                                 processThread.Start(processMessageArguments);
                                             }
 
+                                            //messageBuilder扣除message多讀取的資料
+                                            string overRead = string.Empty;
+                                            if (messageBuilder.Length > messageLength)
+                                                overRead = messageBuilder.ToString(messageLength, messageBuilder.Length - messageLength);
+
                                             //處理Message
-                                            //string newMessage = DecryptMessage(message) + overRead;
-                                            //string newMessage = message + overRead;
-                                            stringRead = cmdBuf + "\n" + messageBuilder.ToString();
-                                            //cmdBuf = cmdBuf.Replace(messageLength.ToString(), newMessage.Length.ToString());
+                                            string newMessage = DecryptMessage(message) + overRead;
+                                            //string newMessage = message + overRead;   //Debug
+                                            //string newMessage = messageBuilder.ToString();    //Debug
+                                            cmdBuf = cmdBuf.Replace(messageLength.ToString(), newMessage.Length.ToString());
+                                            //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), $"# newMessageLength={newMessage.Length}, cmdBuf={cmdBuf}", Proxy.LogLevel.Raw, LogLevel);
 
 
-                                            //await remoteServerStreamWriter.WriteAsync(newMessage);
-                                            //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("S: {0}", newMessage), Proxy.LogLevel.Raw, LogLevel);
+                                            await remoteServerStreamWriter.WriteLineAsync(cmdBuf);
+                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#S: " + cmdBuf, Proxy.LogLevel.Raw, LogLevel);
+
+                                            foreach (var myString in newMessage.Split(new string[] { Environment.NewLine }, StringSplitOptions.None))
+                                            {
+                                                await remoteServerStreamWriter.WriteLineAsync(myString);
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}", myString), Proxy.LogLevel.Raw, LogLevel);
+                                            }
+                                            //await remoteServerStreamWriter.WriteLineAsync(newMessage);
+                                            //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}\n\n.\b.\b.\n\n{1}", newMessage.Substring(0,200), newMessage.Substring(newMessage.Length-200,200)), Proxy.LogLevel.Raw, LogLevel);
+
+                                            if (endstr.Length > 0)
+                                            {
+                                                //await remoteServerStreamWriter.WriteLineAsync(endstr);
+                                                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#S: " + endstr, Proxy.LogLevel.Raw, LogLevel);
+                                            }
 
                                             // We're no longer receiving a message, so continue.
                                             inMessage = false;
-                                            Hold = false;
+                                            ignore = true;
                                             messageBuilder.Clear();
                                         }
                                     }
@@ -848,19 +888,31 @@ namespace Freya.Proxy
                                                     {
                                                         inMessage = true;
                                                         cmdBuf = stringRead; // 記下這條CMD, 並hold住remoteServerStreamWriter
-                                                        Hold = true;
+                                                        ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), $"# inMessage=true, cmdBuf={cmdBuf}", Proxy.LogLevel.Raw, LogLevel);
                                                     }
                                                 }
                                             }
                                         }
 
- 
+
                                     }
 
-                                    if (!Hold)
+                                    if (!inMessage)
                                     {
-                                        await remoteServerStreamWriter.WriteLineAsync(stringRead);
-                                        ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "S: " + stringRead, Proxy.LogLevel.Raw, LogLevel);
+                                        if (!ignore)
+                                        {
+                                            await remoteServerStreamWriter.WriteLineAsync(stringRead);
+                                            if (inMessage)
+                                            {
+                                                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), $"S: {messageBuilder.Length}/{messageLength} {stringRead}", Proxy.LogLevel.Raw, LogLevel);
+                                            }
+                                            else
+                                            {
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "S: " + stringRead, Proxy.LogLevel.Raw, LogLevel);
+                                            }
+                                        }
+                                        else
+                                           ignore = false;
                                     }
 
                                 }
@@ -895,7 +947,9 @@ namespace Freya.Proxy
             {
                 // If sending to the local client, log the connection being closed.
                 if (!arguments.IsClient)
-                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "Connection from {" + arguments.IPAddress + "} closed after transmitting {" + bytesTransmitted.ToString("N0") + "} bytes.", Proxy.LogLevel.Information, LogLevel);
+                {
+                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, $"IMAP Connection closed after transmitting {FFunc.GetSizeString(bytesTransmitted)}.", Proxy.LogLevel.Information, LogLevel);
+                }
 
                 if (clientStream != null)
                     clientStream.Dispose();
@@ -916,6 +970,11 @@ namespace Freya.Proxy
             {
                 MimeKit.MimeMessage message = MimeKit.MimeMessage.Load(mm);
 
+                // Bug fix: 跳過 Blocked / Passed Mail List
+                if (message.Headers.IndexOf("X-Mailer") >= 0 && message.Headers["X-Mailer"].Equals("Softnext SPAM SQR"))
+                    return messageText;
+
+
                 // ===================================
                 // 處理郵件本文
                 // ===================================
@@ -931,12 +990,12 @@ namespace Freya.Proxy
                 }
                 */
 
-                // ===================================
-                // 依照 Header資訊處理Message
-                // ===================================
+                    // ===================================
+                    // 依照 Header資訊處理Message
+                    // ===================================
 
-                // EncryptHelperTag = 1 or 110 : 附件檔案有加密，進行解密處理
-                // B7C1AC87EAE6BE46E67D084C16B0F3BE
+                    // EncryptHelperTag = 1 or 110 : 附件檔案有加密，進行解密處理
+                    // B7C1AC87EAE6BE46E67D084C16B0F3BE
                 string hdrName = MD5("EncryptHelperTag");
                 if (message.Headers.IndexOf(hdrName) >= 0 && (message.Headers[hdrName].Equals(MD5("1")) | message.Headers[hdrName].Equals(MD5("110"))))
                 {
