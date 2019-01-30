@@ -119,7 +119,7 @@ namespace Freya.Proxy
 
         public FreyaStreamWriter(string path, bool append, Encoding encoding, int bufferSize, IpcClient radioclient = null) : base (path, append, encoding, bufferSize)
         {
-            //radioClient = radioclient;
+            radioClient = radioclient;
         }
 
         public string radioSend(string msg, FConstants.FreyaLogLevel loglevel = FConstants.FreyaLogLevel.Normal)
