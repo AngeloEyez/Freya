@@ -88,10 +88,6 @@ namespace Freya.Proxy
                 LogWriter.textLogEn = LogWriterEnable;
                 LogWriter.AutoFlush = true;
                 LogLevel = logLevel;
-
-                LogWriter2 = new FreyaStreamWriter(logFileName + "2", true, Encoding.UTF8, Constants.SMALLBUFFERSIZE, radioClient);
-                LogWriter2.textLogEn = LogWriterEnable;
-                LogWriter2.AutoFlush = true;
             }
 
             // Make sure the remote server isn't an infinite loop back to this server.
@@ -823,23 +819,31 @@ namespace Freya.Proxy
 
                                             //處理Message
                                             string newMessage = DecryptMessage(message);
-
+                                            long byteneedtrans = messageLength;
                                             if (!message.Equals(newMessage))
+                                            {
+                                                byteneedtrans = newMessage.Length + lengtgDiff;
                                                 cmdBuf = cmdBuf.Replace(messageLength.ToString(), (newMessage.Length + lengtgDiff).ToString());
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#: Message Length chaged.", Proxy.LogLevel.Raw, LogLevel);
+                                            }
 
                                             await remoteServerStreamWriter.WriteLineAsync(cmdBuf);
                                             ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#S: " + cmdBuf, Proxy.LogLevel.Raw, LogLevel);
 
-                                            /*
+                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#overRead: " + overRead, Proxy.LogLevel.Raw, LogLevel);
+                                            newMessage = newMessage + overRead;
+
                                             // 分行送出，跟一次送出看起來沒差別
+                                            long msgbyte = 0;
                                             foreach (var myString in newMessage.Split(new string[] { Environment.NewLine }, StringSplitOptions.None))
                                             {
                                                 await remoteServerStreamWriter.WriteLineAsync(myString);
-                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}", myString), Proxy.LogLevel.Raw, LogLevel);
+                                                msgbyte = msgbyte + myString.Length + 2;
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S:{0}/{1} {2}",msgbyte, byteneedtrans, myString), Proxy.LogLevel.Raw, LogLevel);
                                             }
-                                            */
-                                            await remoteServerStreamWriter.WriteLineAsync(newMessage + overRead);
-                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}\n\n.\n.\n.\n\n{1}", newMessage.Substring(0, 200), newMessage.Substring(newMessage.Length - 200, 200)), Proxy.LogLevel.Raw, LogLevel);
+                                            
+                                            //await remoteServerStreamWriter.WriteLineAsync(newMessage);
+                                            //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}\n\n.\n.\n.\n\n{1}", newMessage.Substring(0, 200), newMessage.Substring(newMessage.Length - 200, 200)), Proxy.LogLevel.Raw, LogLevel);
 
                                             // We're no longer receiving a message, so continue.
                                             inMessage = false;
@@ -1014,6 +1018,7 @@ namespace Freya.Proxy
                             //    part.Content.DecodeTo(stream);
                         }
                     }
+                    message.Headers.RemoveAll(hdrName);
                 }
 
 
