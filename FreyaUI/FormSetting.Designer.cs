@@ -81,6 +81,8 @@
             this.checkBox_SMTPLogWriterEnable = new System.Windows.Forms.CheckBox();
             this.comboBox_LogLevel = new System.Windows.Forms.ComboBox();
             this.tabPage_Encryption = new System.Windows.Forms.TabPage();
+            this.btn_DecryptFile = new System.Windows.Forms.Button();
+            this.btn_EncryptFile = new System.Windows.Forms.Button();
             this.richTextBox_EncryptionEncrypted = new System.Windows.Forms.RichTextBox();
             this.richTextBox_EncryptionPlanText = new System.Windows.Forms.RichTextBox();
             this.comboBox_EncryptionMethod = new System.Windows.Forms.ComboBox();
@@ -89,8 +91,7 @@
             this.textBox_FeatureByte = new System.Windows.Forms.TextBox();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.label_Version = new System.Windows.Forms.Label();
-            this.btn_EncryptFile = new System.Windows.Forms.Button();
-            this.btn_DecryptFile = new System.Windows.Forms.Button();
+            this.label21 = new System.Windows.Forms.Label();
             label7 = new System.Windows.Forms.Label();
             label8 = new System.Windows.Forms.Label();
             label5 = new System.Windows.Forms.Label();
@@ -153,7 +154,7 @@
             // label_IMAPServer
             // 
             label_IMAPServer.AutoSize = true;
-            label_IMAPServer.Location = new System.Drawing.Point(6, 139);
+            label_IMAPServer.Location = new System.Drawing.Point(6, 191);
             label_IMAPServer.Name = "label_IMAPServer";
             label_IMAPServer.Size = new System.Drawing.Size(66, 12);
             label_IMAPServer.TabIndex = 7;
@@ -163,7 +164,7 @@
             // 
             label6.AutoSize = true;
             label6.Enabled = false;
-            label6.Location = new System.Drawing.Point(6, 240);
+            label6.Location = new System.Drawing.Point(6, 275);
             label6.Name = "label6";
             label6.Size = new System.Drawing.Size(53, 12);
             label6.TabIndex = 5;
@@ -172,7 +173,7 @@
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new System.Drawing.Point(6, 195);
+            label4.Location = new System.Drawing.Point(6, 247);
             label4.Name = "label4";
             label4.Size = new System.Drawing.Size(61, 12);
             label4.TabIndex = 1;
@@ -181,7 +182,7 @@
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new System.Drawing.Point(6, 167);
+            label3.Location = new System.Drawing.Point(6, 219);
             label3.Name = "label3";
             label3.Size = new System.Drawing.Size(69, 12);
             label3.TabIndex = 1;
@@ -209,7 +210,7 @@
             // 
             label20.AutoSize = true;
             label20.ForeColor = System.Drawing.SystemColors.Highlight;
-            label20.Location = new System.Drawing.Point(31, 106);
+            label20.Location = new System.Drawing.Point(94, 70);
             label20.Name = "label20";
             label20.Size = new System.Drawing.Size(121, 24);
             label20.TabIndex = 10;
@@ -331,6 +332,7 @@
             // 
             // tabPage_Mail
             // 
+            this.tabPage_Mail.Controls.Add(this.label21);
             this.tabPage_Mail.Controls.Add(label20);
             this.tabPage_Mail.Controls.Add(label5);
             this.tabPage_Mail.Controls.Add(this.textBox_Password);
@@ -358,23 +360,24 @@
             this.textBox_Password.Location = new System.Drawing.Point(87, 43);
             this.textBox_Password.Name = "textBox_Password";
             this.textBox_Password.PasswordChar = '*';
-            this.textBox_Password.Size = new System.Drawing.Size(272, 22);
+            this.textBox_Password.Size = new System.Drawing.Size(307, 22);
             this.textBox_Password.TabIndex = 1;
             this.toolTip1.SetToolTip(this.textBox_Password, "Your Email account password.");
             this.textBox_Password.TextChanged += new System.EventHandler(this.textBox_Password_TextChanged);
             // 
             // textBox_IMAPServer
             // 
-            this.textBox_IMAPServer.Location = new System.Drawing.Point(87, 136);
+            this.textBox_IMAPServer.Enabled = false;
+            this.textBox_IMAPServer.Location = new System.Drawing.Point(87, 188);
             this.textBox_IMAPServer.Name = "textBox_IMAPServer";
-            this.textBox_IMAPServer.Size = new System.Drawing.Size(272, 22);
+            this.textBox_IMAPServer.Size = new System.Drawing.Size(307, 22);
             this.textBox_IMAPServer.TabIndex = 3;
             this.toolTip1.SetToolTip(this.textBox_IMAPServer, "Enable SSL, port 993");
             this.textBox_IMAPServer.TextChanged += new System.EventHandler(this.textBox_IMAPServer_TextChanged);
             // 
             // btn_SuperNoteWizard
             // 
-            this.btn_SuperNoteWizard.Location = new System.Drawing.Point(175, 107);
+            this.btn_SuperNoteWizard.Location = new System.Drawing.Point(238, 71);
             this.btn_SuperNoteWizard.Name = "btn_SuperNoteWizard";
             this.btn_SuperNoteWizard.Size = new System.Drawing.Size(121, 23);
             this.btn_SuperNoteWizard.TabIndex = 2;
@@ -387,7 +390,7 @@
             // 
             this.comboBox_SMTPLogLevel.Enabled = false;
             this.comboBox_SMTPLogLevel.FormattingEnabled = true;
-            this.comboBox_SMTPLogLevel.Location = new System.Drawing.Point(87, 237);
+            this.comboBox_SMTPLogLevel.Location = new System.Drawing.Point(87, 272);
             this.comboBox_SMTPLogLevel.Name = "comboBox_SMTPLogLevel";
             this.comboBox_SMTPLogLevel.Size = new System.Drawing.Size(121, 20);
             this.comboBox_SMTPLogLevel.TabIndex = 6;
@@ -395,17 +398,19 @@
             // 
             // textBox_WebService
             // 
-            this.textBox_WebService.Location = new System.Drawing.Point(87, 192);
+            this.textBox_WebService.Enabled = false;
+            this.textBox_WebService.Location = new System.Drawing.Point(87, 244);
             this.textBox_WebService.Name = "textBox_WebService";
-            this.textBox_WebService.Size = new System.Drawing.Size(272, 22);
+            this.textBox_WebService.Size = new System.Drawing.Size(307, 22);
             this.textBox_WebService.TabIndex = 5;
             this.textBox_WebService.TextChanged += new System.EventHandler(this.textBox_WebService_TextChanged);
             // 
             // textBox_SMTPServer
             // 
-            this.textBox_SMTPServer.Location = new System.Drawing.Point(87, 164);
+            this.textBox_SMTPServer.Enabled = false;
+            this.textBox_SMTPServer.Location = new System.Drawing.Point(87, 216);
             this.textBox_SMTPServer.Name = "textBox_SMTPServer";
-            this.textBox_SMTPServer.Size = new System.Drawing.Size(272, 22);
+            this.textBox_SMTPServer.Size = new System.Drawing.Size(307, 22);
             this.textBox_SMTPServer.TabIndex = 4;
             this.textBox_SMTPServer.TextChanged += new System.EventHandler(this.textBox_SMTPServer_TextChanged);
             // 
@@ -413,7 +418,7 @@
             // 
             this.textBox_Email.Location = new System.Drawing.Point(87, 15);
             this.textBox_Email.Name = "textBox_Email";
-            this.textBox_Email.Size = new System.Drawing.Size(272, 22);
+            this.textBox_Email.Size = new System.Drawing.Size(307, 22);
             this.textBox_Email.TabIndex = 0;
             this.toolTip1.SetToolTip(this.textBox_Email, "Your Email account to login to SuperNote.");
             this.textBox_Email.TextChanged += new System.EventHandler(this.textBox_Email_TextChanged);
@@ -677,6 +682,26 @@
             this.tabPage_Encryption.Text = "Encryption";
             this.tabPage_Encryption.UseVisualStyleBackColor = true;
             // 
+            // btn_DecryptFile
+            // 
+            this.btn_DecryptFile.Location = new System.Drawing.Point(158, 6);
+            this.btn_DecryptFile.Name = "btn_DecryptFile";
+            this.btn_DecryptFile.Size = new System.Drawing.Size(75, 23);
+            this.btn_DecryptFile.TabIndex = 6;
+            this.btn_DecryptFile.Text = "Decrypt File";
+            this.btn_DecryptFile.UseVisualStyleBackColor = true;
+            this.btn_DecryptFile.Click += new System.EventHandler(this.btn_DecryptFile_Click);
+            // 
+            // btn_EncryptFile
+            // 
+            this.btn_EncryptFile.Location = new System.Drawing.Point(77, 6);
+            this.btn_EncryptFile.Name = "btn_EncryptFile";
+            this.btn_EncryptFile.Size = new System.Drawing.Size(75, 23);
+            this.btn_EncryptFile.TabIndex = 5;
+            this.btn_EncryptFile.Text = "Encrypt File";
+            this.btn_EncryptFile.UseVisualStyleBackColor = true;
+            this.btn_EncryptFile.Click += new System.EventHandler(this.btn_EncryptFile_Click);
+            // 
             // richTextBox_EncryptionEncrypted
             // 
             this.richTextBox_EncryptionEncrypted.Location = new System.Drawing.Point(5, 175);
@@ -756,25 +781,16 @@
             this.label_Version.TabIndex = 4;
             this.label_Version.Text = "label_Version";
             // 
-            // btn_EncryptFile
+            // label21
             // 
-            this.btn_EncryptFile.Location = new System.Drawing.Point(77, 6);
-            this.btn_EncryptFile.Name = "btn_EncryptFile";
-            this.btn_EncryptFile.Size = new System.Drawing.Size(75, 23);
-            this.btn_EncryptFile.TabIndex = 5;
-            this.btn_EncryptFile.Text = "Encrypt File";
-            this.btn_EncryptFile.UseVisualStyleBackColor = true;
-            this.btn_EncryptFile.Click += new System.EventHandler(this.btn_EncryptFile_Click);
-            // 
-            // btn_DecryptFile
-            // 
-            this.btn_DecryptFile.Location = new System.Drawing.Point(158, 6);
-            this.btn_DecryptFile.Name = "btn_DecryptFile";
-            this.btn_DecryptFile.Size = new System.Drawing.Size(75, 23);
-            this.btn_DecryptFile.TabIndex = 6;
-            this.btn_DecryptFile.Text = "Decrypt File";
-            this.btn_DecryptFile.UseVisualStyleBackColor = true;
-            this.btn_DecryptFile.Click += new System.EventHandler(this.btn_DecryptFile_Click);
+            this.label21.AutoSize = true;
+            this.label21.Font = new System.Drawing.Font("新細明體", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(136)));
+            this.label21.Location = new System.Drawing.Point(55, 107);
+            this.label21.Name = "label21";
+            this.label21.Size = new System.Drawing.Size(275, 60);
+            this.label21.TabIndex = 11;
+            this.label21.Text = "Set your Email Client with the following server:\r\n\r\nIMAP: 127.0.0.1 : 143\r\nSMTP: " +
+    "127.0.0.1 : 25\r\nNo SSL\r\n";
             // 
             // FormSetting
             // 
@@ -859,5 +875,6 @@
         private System.Windows.Forms.CheckBox checkBox_SMTPLogWriterEnable;
         private System.Windows.Forms.Button btn_EncryptFile;
         private System.Windows.Forms.Button btn_DecryptFile;
+        private System.Windows.Forms.Label label21;
     }
 }
