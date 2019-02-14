@@ -116,6 +116,7 @@ namespace Freya
             if (WatchDogCounter <= 0)
             {
                 OkToGo = false;
+                WatchDogCounter = 60;
             }
 
             if (isEnable && OkToGo)
