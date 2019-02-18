@@ -930,6 +930,7 @@ namespace Freya
             {
                 if (f.restartProxy) // 改動proxy相關資料需要重新啟動proxy
                 {
+                    /*
                     new FormWait(() =>
                     {
                         string response = radioClient.Send(JsonConvert.SerializeObject(new FMsg { Type = "CMD", Data = "StopProxy" }));
@@ -945,10 +946,10 @@ namespace Freya
 
 
                     }).SetMessage("ReStarting SMTP/IMAP Service ...").ShowDialog();
-
+                    */
+                    MessageBox.Show("Mail Setting changed, need system reboot to take effect.");
                 }
             }
-
 
             RegSetting.GetSettingsFromRegistry();
             getStatus();

@@ -32,6 +32,7 @@ using MimeKit;
 using System.Linq;
 using System.Security.Cryptography;
 using MailKit;
+using System.Text.RegularExpressions;
 
 namespace Freya.Proxy
 {
@@ -779,7 +780,7 @@ namespace Freya.Proxy
                                     if (inMessage)
                                     {
                                         messageBuilder.AppendLine(stringRead);
-                                        strBuf.Add(stringRead);
+                                        //strBuf.Add(stringRead);
 
                                         // 系統發出 spamlist長度有問題，看到)來判斷message結束
                                         if (messageBuilder.Length >= messageLength)
@@ -789,7 +790,7 @@ namespace Freya.Proxy
                                             string messageBuilderStr = messageBuilder.ToString();
                                             messageBuilderStr = messageBuilderStr.Substring(0, messageBuilderStr.LastIndexOf(Environment.NewLine));
                                             int lengtgDiff = messageBuilder.Length - messageBuilderStr.Length;
-                                            
+
                                             //Build message
                                             string message, endstr = string.Empty;
                                             if (messageBuilder.Length < messageLength)
@@ -816,7 +817,7 @@ namespace Freya.Proxy
                                                 */
                                             }
 
-                                            
+
                                             //messageBuilder扣除message多讀取的資料
                                             string overRead = string.Empty;
                                             if (messageBuilderStr.Length > message.Length)
@@ -834,7 +835,7 @@ namespace Freya.Proxy
 
                                             ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#overRead: " + overRead, Proxy.LogLevel.Raw, LogLevel);
                                             newMessage = newMessage + overRead;
-                                            
+
                                             await remoteServerStreamWriter.WriteLineAsync(cmdBuf);
                                             ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#S: " + cmdBuf, Proxy.LogLevel.Raw, LogLevel);
 
@@ -845,11 +846,11 @@ namespace Freya.Proxy
                                             {
                                                 await remoteServerStreamWriter.WriteLineAsync(myString);
                                                 msgbyte = msgbyte + myString.Length + 2;
-                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S:{0}/{1} {2}",msgbyte, byteneedtrans, myString), Proxy.LogLevel.Raw, LogLevel);
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S:{0}/{1} {2}", msgbyte, byteneedtrans, myString), Proxy.LogLevel.Raw, LogLevel);
                                                 //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}", myString), Proxy.LogLevel.Raw, LogLevel);
 
                                             }
-                                            strBuf.Clear();
+                                            //strBuf.Clear();
 
                                             //await remoteServerStreamWriter.WriteLineAsync(newMessage);
                                             //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}\n\n.\n.\n.\n\n{1}", newMessage.Substring(0, 200), newMessage.Substring(newMessage.Length - 200, 200)), Proxy.LogLevel.Raw, LogLevel);
@@ -930,13 +931,13 @@ namespace Freya.Proxy
             catch (IOException ex)
             {
                 // Ignore either stream being closed.
-                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "IOException: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
+                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "IOException: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
 
             }
             catch (ObjectDisposedException ex)
             {
                 // Ignore either stream being closed.
-                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "ObjectDisposedException: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
+                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId, "ObjectDisposedException: " + ex.ToString(), Proxy.LogLevel.Error, LogLevel);
 
             }
             catch (Exception ex)
@@ -982,18 +983,47 @@ namespace Freya.Proxy
 
                 // ===================================
                 // 處理郵件本文
-                // ===================================
-                /*
-                string FixedSignature = "OOOOOOOAAAAAAOOOOOO";
+                // ===================================    
                 foreach (var part in message.BodyParts.OfType<TextPart>())
                 {
-                    int endBodyPos = part.Text.IndexOf("</BODY>", StringComparison.OrdinalIgnoreCase);
-                    if (endBodyPos > -1)
-                        part.Text = part.Text.Substring(0, endBodyPos) + FixedSignature + part.Text.Substring(endBodyPos);
-                    else
-                        part.Text += FixedSignature;
+                    try
+                    {
+                        int endPos;
+                        //去除 "系統解密文件" block
+                        if (part.Text.Substring(0, 170).Contains("系統解密文件"))
+                        {
+                            endPos = part.Text.IndexOf("</DIV>", StringComparison.OrdinalIgnoreCase);
+                            if (endPos > -1)
+                            {
+                                part.Text = part.Text.Substring(endPos + 8);
+                                modified = true;
+                            }
+                        }
+
+                        //去除 "機密文件聲明" block
+                        int startPos = part.Text.IndexOf("⌘本電子郵件及附件所載信息");
+                        if (startPos > -1)
+                        {
+                            endPos = part.Text.IndexOf("<HR>", startPos, StringComparison.OrdinalIgnoreCase);
+                            startPos = part.Text.LastIndexOf("<HR>", startPos, StringComparison.OrdinalIgnoreCase);
+                            part.Text = part.Text.Remove(startPos, endPos - startPos + 4);
+                            modified = true;
+                        }
+
+                        //去除 "Mail from" block
+                        startPos = part.Text.IndexOf("mail from ip--&gt;");
+                        if (startPos > -1)
+                        {
+                            endPos = part.Text.IndexOf("</DIV>", startPos, StringComparison.OrdinalIgnoreCase);
+                            endPos = part.Text.IndexOf("</DIV>", endPos + 6, StringComparison.OrdinalIgnoreCase);
+                            startPos = part.Text.LastIndexOf("<DIV", startPos, StringComparison.OrdinalIgnoreCase);
+                            part.Text = part.Text.Remove(startPos, endPos - startPos + 6);
+                            modified = true;
+                        }
+                    }
+                    catch { }
                 }
-                */
+
 
                 // ===================================
                 // 依照 Header資訊處理Message
