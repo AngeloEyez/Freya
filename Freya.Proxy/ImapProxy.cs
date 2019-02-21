@@ -780,7 +780,7 @@ namespace Freya.Proxy
                                     if (inMessage)
                                     {
                                         messageBuilder.AppendLine(stringRead);
-                                        //strBuf.Add(stringRead);
+                                        strBuf.Add(stringRead);
 
                                         // 系統發出 spamlist長度有問題，看到)來判斷message結束
                                         if (messageBuilder.Length >= messageLength)
@@ -976,10 +976,14 @@ namespace Freya.Proxy
             {
                 MimeKit.MimeMessage message = MimeKit.MimeMessage.Load(mm);
 
-                // Bug fix: 跳過 Blocked / Passed Mail List
-                if (message.Headers.IndexOf("X-Mailer") >= 0 && message.Headers["X-Mailer"].Equals("Softnext SPAM SQR"))
+                // Bug fix: 
+                // 跳過 Blocked / Passed Mail List
+                // 跳過 wf-admin@mail.foxconn.com來信
+                if (message.Headers.IndexOf("X-Mailer") >= 0)
+                {
+                    if (message.Headers["X-Mailer"].Equals("Softnext SPAM SQR") || message.Headers["X-Mailer"].Equals("Microsoft CDO for Windows 2000"))
                     return messageText;
-
+                }
 
                 // ===================================
                 // 處理郵件本文
