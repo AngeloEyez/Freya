@@ -1006,8 +1006,6 @@ namespace Freya.Proxy
                     return messageText;
                 }
 
-
-
                 // ===================================
                 // 處理郵件本文
                 // ===================================    
@@ -1017,7 +1015,7 @@ namespace Freya.Proxy
                     {
                         int endPos;
                         //去除 "系統解密文件" block
-                        if (part.Text.Substring(0, 170).Contains("系統解密文件"))
+                        if (part.Text.Substring(0, 170).Contains("系統解密文件") || part.Text.Substring(0, 170).Contains("系统解密文件")) 
                         {
                             endPos = part.Text.IndexOf("</DIV>", StringComparison.OrdinalIgnoreCase);
                             if (endPos > -1)
