@@ -783,9 +783,11 @@ namespace Freya.Proxy
                                         strBuf.Add(stringRead);
 
                                         // 系統發出 spamlist長度有問題，看到)來判斷message結束
-                                        if (messageBuilder.Length >= messageLength)
-                                        //if (messageBuilder.Length >= messageLength || stringRead.Equals(")"))
+                                        //if (messageBuilder.Length >= messageLength)
+                                        if (messageBuilder.Length >= messageLength || stringRead.Equals(")"))
                                         {
+                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#: Start Processing Message", Proxy.LogLevel.Raw, LogLevel);
+
                                             //去掉最後一個NewLine，stringbuilder轉出來會自己多加一個，造成outlook無法解析郵件
                                             string messageBuilderStr = messageBuilder.ToString();
                                             messageBuilderStr = messageBuilderStr.Substring(0, messageBuilderStr.LastIndexOf(Environment.NewLine));
@@ -831,26 +833,39 @@ namespace Freya.Proxy
                                                 byteneedtrans = newMessage.Length + lengtgDiff;
                                                 cmdBuf = cmdBuf.Replace(messageLength.ToString(), (newMessage.Length + lengtgDiff).ToString());
                                                 ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#: Message Length chaged.", Proxy.LogLevel.Raw, LogLevel);
+
+                                                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#overRead: " + overRead, Proxy.LogLevel.Raw, LogLevel);
+                                                newMessage = newMessage + overRead;
+
+                                                await remoteServerStreamWriter.WriteLineAsync(cmdBuf);
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#S: " + cmdBuf, Proxy.LogLevel.Raw, LogLevel);
+
+                                                // 分行送出，跟一次送出看起來沒差別
+                                                long msgbyte = 0;
+                                                foreach (var myString in newMessage.Split(new string[] { Environment.NewLine }, StringSplitOptions.None))
+                                                {
+                                                    await remoteServerStreamWriter.WriteLineAsync(myString);
+                                                    msgbyte = msgbyte + myString.Length + 2;
+                                                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S:{0}/{1} {2}", msgbyte, byteneedtrans, myString), Proxy.LogLevel.Raw, LogLevel);
+                                                    //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}", myString), Proxy.LogLevel.Raw, LogLevel);
+                                                }
+
+                                            }
+                                            else
+                                            {   //訊息沒改變，直接送出strbuf
+                                                await remoteServerStreamWriter.WriteLineAsync(cmdBuf);
+                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#S: " + cmdBuf, Proxy.LogLevel.Raw, LogLevel);
+                                                long msgbyte = 0;
+                                                foreach (var myString in strBuf)
+                                                {
+                                                    await remoteServerStreamWriter.WriteLineAsync(myString);
+                                                    msgbyte = msgbyte + myString.Length + 2;
+                                                    ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S:{0}/{1} {2}", msgbyte, byteneedtrans, myString), Proxy.LogLevel.Raw, LogLevel);
+                                                }
+
                                             }
 
-                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#overRead: " + overRead, Proxy.LogLevel.Raw, LogLevel);
-                                            newMessage = newMessage + overRead;
-
-                                            await remoteServerStreamWriter.WriteLineAsync(cmdBuf);
-                                            ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), "#S: " + cmdBuf, Proxy.LogLevel.Raw, LogLevel);
-
-                                            // 分行送出，跟一次送出看起來沒差別
-                                            long msgbyte = 0;
-                                            //foreach (var myString in strBuf)
-                                            foreach (var myString in newMessage.Split(new string[] { Environment.NewLine }, StringSplitOptions.None))
-                                            {
-                                                await remoteServerStreamWriter.WriteLineAsync(myString);
-                                                msgbyte = msgbyte + myString.Length + 2;
-                                                ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S:{0}/{1} {2}", msgbyte, byteneedtrans, myString), Proxy.LogLevel.Raw, LogLevel);
-                                                //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}", myString), Proxy.LogLevel.Raw, LogLevel);
-
-                                            }
-                                            //strBuf.Clear();
+                                            strBuf.Clear();
 
                                             //await remoteServerStreamWriter.WriteLineAsync(newMessage);
                                             //ProxyFunctions.Log(LogWriter, SessionId, arguments.ConnectionId.ToString(), string.Format("#S: {0}\n\n.\n.\n.\n\n{1}", newMessage.Substring(0, 200), newMessage.Substring(newMessage.Length - 200, 200)), Proxy.LogLevel.Raw, LogLevel);
@@ -976,6 +991,7 @@ namespace Freya.Proxy
             {
                 MimeKit.MimeMessage message = MimeKit.MimeMessage.Load(mm);
 
+                /*
                 // Bug fix: 
                 // 跳過 Blocked / Passed Mail List
                 // 跳過 wf-admin@mail.foxconn.com來信
@@ -984,6 +1000,13 @@ namespace Freya.Proxy
                     if (message.Headers["X-Mailer"].Equals("Softnext SPAM SQR") || message.Headers["X-Mailer"].Equals("Microsoft CDO for Windows 2000"))
                     return messageText;
                 }
+                */
+                if (message.Headers.IndexOf("X-Mailer") >= 0 && !message.Headers["X-Mailer"].ToLower().Contains("super notes"))
+                {
+                    return messageText;
+                }
+
+
 
                 // ===================================
                 // 處理郵件本文
